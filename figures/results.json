@@ -1,0 +1,224 @@
+{
+  "history": {
+    "readings": 1367,
+    "start_utc": "2026-10-03T10:01:51+00:00",
+    "end_utc": "2026-10-03T15:44:43+00:00",
+    "duration_h": 5.71,
+    "median_interval_s": 15.0,
+    "max_gap_s": 74.0,
+    "heater_on_fraction": 0.19239209948792976,
+    "setpoints": [
+      30.0,
+      32.0,
+      34.5,
+      38.8
+    ]
+  },
+  "heater_runs": 65,
+  "heatup_runs_ge_2min": {
+    "count": 5,
+    "slope_c_per_min": [
+      0.347,
+      0.407,
+      0.225,
+      0.147,
+      0.272
+    ],
+    "min": 0.147,
+    "max": 0.407
+  },
+  "longest_cooldown": {
+    "start_utc": "10:16",
+    "duration_min": 92.3,
+    "slope_c_per_min": -0.0353,
+    "from_to_c": [
+      31.92,
+      30.22
+    ]
+  },
+  "post_switch_rise_c": {
+    "median_2min": 0.11,
+    "max_2min": 0.88,
+    "long_runs_20min": [
+      {
+        "run_start_utc": "10:02",
+        "run_min": 9.8,
+        "temp_at_off": 30.05,
+        "peak_c": 33.42,
+        "rise_c": 3.37,
+        "minutes_to_peak": 14.0
+      },
+      {
+        "run_start_utc": "11:49",
+        "run_min": 7.5,
+        "temp_at_off": 31.82,
+        "peak_c": 33.25,
+        "rise_c": 1.43,
+        "minutes_to_peak": 9.2
+      },
+      {
+        "run_start_utc": "13:09",
+        "run_min": 9.8,
+        "temp_at_off": 36.81,
+        "peak_c": 38.66,
+        "rise_c": 1.85,
+        "minutes_to_peak": 16.0
+      }
+    ]
+  },
+  "time_to_target": [
+    {
+      "new_target": 32.0,
+      "reached": true,
+      "minutes": 14.8,
+      "overshoot_c": 1.42
+    },
+    {
+      "new_target": 34.5,
+      "reached": true,
+      "minutes": 9.0,
+      "overshoot_c": 0.0
+    },
+    {
+      "new_target": 38.8,
+      "reached": true,
+      "minutes": 24.8,
+      "overshoot_c": -0.03
+    },
+    {
+      "new_target": 30.0,
+      "reached": false,
+      "minutes": null,
+      "overshoot_c": null
+    }
+  ],
+  "steady_state_38_8": {
+    "window_utc": [
+      "13:35",
+      "15:39"
+    ],
+    "temp_mean": 38.65,
+    "temp_min": 38.57,
+    "temp_max": 38.77,
+    "duty_cycle": 0.192,
+    "pulses": 19,
+    "delta_in_out_mean": 10.4
+  },
+  "duty_cycle_10min": {
+    "mean": 0.193,
+    "max": 0.95
+  },
+  "anomalies": {
+    "comparison": {
+      "n_a": 17,
+      "n_b": 41,
+      "n_both": 3,
+      "jaccard": 0.055
+    },
+    "zscore_episodes": [
+      {
+        "start_utc": "11:49:11",
+        "end_utc": "11:49:56",
+        "readings": 4
+      },
+      {
+        "start_utc": "11:56:56",
+        "end_utc": "11:57:41",
+        "readings": 4
+      },
+      {
+        "start_utc": "12:20:42",
+        "end_utc": "12:21:27",
+        "readings": 4
+      },
+      {
+        "start_utc": "13:19:31",
+        "end_utc": "13:20:01",
+        "readings": 3
+      },
+      {
+        "start_utc": "13:27:31",
+        "end_utc": "13:27:31",
+        "readings": 1
+      },
+      {
+        "start_utc": "13:32:01",
+        "end_utc": "13:32:01",
+        "readings": 1
+      }
+    ],
+    "isoforest_episodes": [
+      {
+        "start_utc": "10:02:21",
+        "end_utc": "10:13:21",
+        "readings": 38
+      },
+      {
+        "start_utc": "11:49:11",
+        "end_utc": "11:49:41",
+        "readings": 3
+      }
+    ]
+  },
+  "thermal_model": {
+    "full_trace": {
+      "a_c_per_min": 0.5539,
+      "a_se": 0.002,
+      "b_per_min": 0.0101,
+      "b_se": 0.0001,
+      "dead_time_readings": 14,
+      "dead_time_s": 210.0,
+      "n": 1367,
+      "rmse_c": 0.2877,
+      "r2": 0.9925,
+      "tau_min": 99.1649,
+      "tau_se_min": 0.5559,
+      "full_power_rise_c": 54.9294
+    },
+    "clean_windows": {
+      "a_c_per_min": 0.5338,
+      "a_se": 0.0024,
+      "b_per_min": 0.0085,
+      "b_se": 0.0001,
+      "dead_time_readings": 16,
+      "dead_time_s": 240.0,
+      "n": 582,
+      "rmse_c": 0.2646,
+      "r2": 0.9951,
+      "tau_min": 118.3177,
+      "tau_se_min": 1.5749,
+      "full_power_rise_c": 63.1589
+    },
+    "clean_windows_utc": [
+      [
+        "2026-10-03 10:01:51",
+        "2026-10-03 11:56:41"
+      ],
+      [
+        "2026-10-03 13:09:31",
+        "2026-10-03 13:40:00"
+      ]
+    ],
+    "open_loop_rmse_c_full": 0.288,
+    "open_loop_rmse_c_clean": 0.699
+  },
+  "stress_log": {
+    "rows": 33,
+    "span_min": 120.4,
+    "heater_on_rows": 10,
+    "heatup_slope_c_per_min": 0.349,
+    "heatup_from_to_c": [
+      31.45,
+      38.2
+    ],
+    "peak_c": 38.75,
+    "crash_count_range": [
+      6,
+      7
+    ],
+    "run_states": [
+      "PAUSED",
+      "RUNNING"
+    ]
+  }
+}
