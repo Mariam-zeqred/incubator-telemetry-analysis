@@ -204,56 +204,310 @@
   },
   "second_order_model": {
     "second_order": {
-      "a_c_per_min": 0.5921,
+      "a_c_per_min": 0.5908,
       "a_se": 0.0015,
-      "tau_h_min": 5.1943,
-      "tau_h_se": 0.0514,
+      "tau_h_min": 4.9175,
+      "tau_h_se": 0.0508,
       "b_per_min": 0.0111,
       "b_se": 0.0,
       "dead_time_readings": 0,
       "dead_time_s": 0.0,
       "n": 1367,
-      "rmse_c": 0.16,
+      "rmse_c": 0.1608,
       "r2": 0.9977,
       "physical_branch": true,
-      "tau_min": 90.1177,
-      "tau_se_min": 0.3214,
-      "full_power_rise_c": 53.3559
+      "tau_min": 90.3823,
+      "tau_se_min": 0.3226,
+      "full_power_rise_c": 53.3998
     },
-    "second_order_other_branch_rmse_c": 0.1358,
+    "second_order_other_branch_rmse_c": 0.1348,
     "comparison": {
       "n": 1367,
       "first_order_rmse_c": 0.2877,
-      "second_order_rmse_c": 0.16,
-      "rmse_ratio": 0.5563,
+      "second_order_rmse_c": 0.1608,
+      "rmse_ratio": 0.559,
       "first_order_aic": -3400.5129,
-      "second_order_aic": -5003.9147,
-      "delta_aic": -1603.4018
+      "second_order_aic": -4990.4803,
+      "delta_aic": -1589.9674
     },
     "post_switch_peaks": [
       {
         "run_start_utc": "10:02",
         "measured_rise_c": 3.37,
         "first_order_rise_c": 3.37,
-        "second_order_rise_c": 3.29,
+        "second_order_rise_c": 3.32,
         "measured_minutes_to_peak": 14.0,
-        "second_order_minutes_to_peak": 14.5
+        "second_order_minutes_to_peak": 14.2
       },
       {
         "run_start_utc": "11:49",
         "measured_rise_c": 1.43,
         "first_order_rise_c": 1.88,
-        "second_order_rise_c": 1.48,
+        "second_order_rise_c": 1.51,
         "measured_minutes_to_peak": 9.2,
-        "second_order_minutes_to_peak": 10.2
+        "second_order_minutes_to_peak": 10.0
       },
       {
         "run_start_utc": "13:09",
         "measured_rise_c": 1.85,
         "first_order_rise_c": 2.28,
-        "second_order_rise_c": 2.16,
+        "second_order_rise_c": 2.18,
         "measured_minutes_to_peak": 16.0,
-        "second_order_minutes_to_peak": 16.2
+        "second_order_minutes_to_peak": 16.5
+      }
+    ]
+  },
+  "fault_scoring": {
+    "trials_per_kind": 20,
+    "fault_defaults": {
+      "stuck_sensor": {
+        "duration_min": 15.0,
+        "magnitude": 0.0
+      },
+      "spike": {
+        "duration_min": 0.0,
+        "magnitude": 1.5
+      },
+      "heater_stuck_on": {
+        "duration_min": 10.0,
+        "magnitude": 0.0
+      },
+      "heater_stuck_off": {
+        "duration_min": 20.0,
+        "magnitude": 0.0
+      },
+      "door_open": {
+        "duration_min": 15.0,
+        "magnitude": 4.0
+      },
+      "dropout": {
+        "duration_min": 10.0,
+        "magnitude": 0.0
+      }
+    },
+    "model_drift_threshold_c": 0.22,
+    "clean_day_flags": {
+      "zscore": 17,
+      "isoforest": 41,
+      "isoforest_ref": 41,
+      "model_drift": 5
+    },
+    "scores": [
+      {
+        "kind": "stuck_sensor",
+        "detector": "zscore",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.4,
+        "precision": 0.14,
+        "recall": 0.04,
+        "fp_episodes_per_trial": 5.25
+      },
+      {
+        "kind": "stuck_sensor",
+        "detector": "isoforest",
+        "detection_rate": 0.3,
+        "null_detection_rate": 0.15,
+        "precision": 0.01,
+        "recall": 0.01,
+        "fp_episodes_per_trial": 1.75
+      },
+      {
+        "kind": "stuck_sensor",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.2,
+        "null_detection_rate": 0.15,
+        "precision": 0.01,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.9
+      },
+      {
+        "kind": "stuck_sensor",
+        "detector": "model_drift",
+        "detection_rate": 0.6,
+        "null_detection_rate": 0.2,
+        "precision": 0.78,
+        "recall": 0.27,
+        "fp_episodes_per_trial": 1.0
+      },
+      {
+        "kind": "spike",
+        "detector": "zscore",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 5.6
+      },
+      {
+        "kind": "spike",
+        "detector": "isoforest",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.95
+      },
+      {
+        "kind": "spike",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.95
+      },
+      {
+        "kind": "spike",
+        "detector": "model_drift",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.05,
+        "precision": 0.16,
+        "recall": 1.0,
+        "fp_episodes_per_trial": 1.25
+      },
+      {
+        "kind": "heater_stuck_on",
+        "detector": "zscore",
+        "detection_rate": 0.8,
+        "null_detection_rate": 0.25,
+        "precision": 0.21,
+        "recall": 0.11,
+        "fp_episodes_per_trial": 6.15
+      },
+      {
+        "kind": "heater_stuck_on",
+        "detector": "isoforest",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.1,
+        "precision": 0.01,
+        "recall": 0.01,
+        "fp_episodes_per_trial": 1.85
+      },
+      {
+        "kind": "heater_stuck_on",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.1,
+        "precision": 0.01,
+        "recall": 0.01,
+        "fp_episodes_per_trial": 1.75
+      },
+      {
+        "kind": "heater_stuck_on",
+        "detector": "model_drift",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.05,
+        "precision": 0.47,
+        "recall": 0.78,
+        "fp_episodes_per_trial": 1.8
+      },
+      {
+        "kind": "heater_stuck_off",
+        "detector": "zscore",
+        "detection_rate": 0.65,
+        "null_detection_rate": 0.4,
+        "precision": 0.06,
+        "recall": 0.01,
+        "fp_episodes_per_trial": 5.8
+      },
+      {
+        "kind": "heater_stuck_off",
+        "detector": "isoforest",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.15,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.95
+      },
+      {
+        "kind": "heater_stuck_off",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.15,
+        "null_detection_rate": 0.15,
+        "precision": 0.01,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.9
+      },
+      {
+        "kind": "heater_stuck_off",
+        "detector": "model_drift",
+        "detection_rate": 0.85,
+        "null_detection_rate": 0.25,
+        "precision": 0.78,
+        "recall": 0.53,
+        "fp_episodes_per_trial": 1.4
+      },
+      {
+        "kind": "door_open",
+        "detector": "zscore",
+        "detection_rate": 0.95,
+        "null_detection_rate": 0.4,
+        "precision": 0.25,
+        "recall": 0.09,
+        "fp_episodes_per_trial": 5.45
+      },
+      {
+        "kind": "door_open",
+        "detector": "isoforest",
+        "detection_rate": 0.15,
+        "null_detection_rate": 0.15,
+        "precision": 0.01,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 2.1
+      },
+      {
+        "kind": "door_open",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.15,
+        "null_detection_rate": 0.15,
+        "precision": 0.01,
+        "recall": 0.01,
+        "fp_episodes_per_trial": 1.9
+      },
+      {
+        "kind": "door_open",
+        "detector": "model_drift",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.2,
+        "precision": 0.93,
+        "recall": 0.92,
+        "fp_episodes_per_trial": 1.0
+      },
+      {
+        "kind": "dropout",
+        "detector": "zscore",
+        "detection_rate": 0.25,
+        "null_detection_rate": 0.1,
+        "precision": 0.0,
+        "recall": 0.05,
+        "fp_episodes_per_trial": 5.5
+      },
+      {
+        "kind": "dropout",
+        "detector": "isoforest",
+        "detection_rate": 0.1,
+        "null_detection_rate": 0.05,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.95
+      },
+      {
+        "kind": "dropout",
+        "detector": "isoforest_ref",
+        "detection_rate": 0.05,
+        "null_detection_rate": 0.05,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.95
+      },
+      {
+        "kind": "dropout",
+        "detector": "model_drift",
+        "detection_rate": 0.85,
+        "null_detection_rate": 0.0,
+        "precision": 0.04,
+        "recall": 0.8,
+        "fp_episodes_per_trial": 1.65
       }
     ]
   },

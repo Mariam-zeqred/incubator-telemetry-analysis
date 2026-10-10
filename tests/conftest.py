@@ -81,8 +81,10 @@ def synthetic_trace_second_order(
     h = dt_s / 60.0
     for k in range(1, n):
         heater[k - 1] = temp[k - 1] < target[k - 1] - 0.1
-        flow += h * (a * heater[k - 1] - flow) / tau_h
-        temp[k] = temp[k - 1] + h * (flow - b * (temp[k - 1] - temp_out[k - 1]))
+        target_flow = a * heater[k - 1]
+        flow_next = target_flow + (flow - target_flow) * np.exp(-h / tau_h)
+        temp[k] = temp[k - 1] + h * (0.5 * (flow + flow_next) - b * (temp[k - 1] - temp_out[k - 1]))
+        flow = flow_next
     heater[-1] = heater[-2]
     measured = np.round(temp + rng.normal(0.0, noise_c, n), 2)
     df = pd.DataFrame(

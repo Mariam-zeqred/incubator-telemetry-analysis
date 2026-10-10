@@ -16,6 +16,14 @@ Detector 2 -- IsolationForest on the whole feature table.
     Multivariate: it can flag a reading whose slope is normal but whose combination of
     (chamber temperature, ambient, humidity, setpoint error, time since switch) is unusual.
     ``contamination`` sets the fraction of readings it will label.
+    :class:`ReferenceIsolationForest` is the same model fitted on a known-good day and
+    applied to new data.
+
+Detector 3 -- :func:`model_residual`, added in session 2: drift of the measured
+    temperature away from what the fitted heater-lag model predicts from the logged relay
+    states. The only one of the three that knows what the heater *should* be doing.
+
+Scoring against injected faults lives in :mod:`incubator.faults`.
 """
 
 from __future__ import annotations
@@ -27,6 +35,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 from incubator.features import FEATURE_COLUMNS
+from incubator.thermal_fit import SecondOrderFit
 
 
 def rolling_zscore(
@@ -122,3 +131,90 @@ def flagged_episodes(flag: pd.Series, max_gap: str = "2min") -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+class ReferenceIsolationForest:
+    """IsolationForest fitted once on a known-good trace and applied to new data.
+
+    The plain :func:`isolation_forest` is refitted on whatever it is given and always
+    labels its ``contamination`` fraction, so on a trace with a real fault it still spends
+    most of its budget on the most unusual *normal* period (here: the cold start). The
+    deployment-shaped alternative is to fit on a reference day and flag new readings whose
+    score exceeds the ``quantile`` of the reference scores. Same model, different question:
+    "is this unlike the day we know was fine?"
+    """
+
+    def __init__(
+        self,
+        quantile: float = 0.97,
+        n_estimators: int = 300,
+        random_state: int = 0,
+        columns: list[str] | None = None,
+    ) -> None:
+        self.quantile = quantile
+        self.columns = columns or FEATURE_COLUMNS
+        self.model = IsolationForest(n_estimators=n_estimators, random_state=random_state)
+        self.mean_: np.ndarray | None = None
+        self.std_: np.ndarray | None = None
+        self.threshold_: float = float("nan")
+
+    def _standardise(self, features: pd.DataFrame) -> np.ndarray:
+        x = features[self.columns].to_numpy(dtype=float)
+        assert self.mean_ is not None and self.std_ is not None
+        return (x - self.mean_) / self.std_
+
+    def fit(self, features: pd.DataFrame) -> ReferenceIsolationForest:
+        x = features[self.columns].to_numpy(dtype=float)
+        self.mean_ = x.mean(axis=0)
+        self.std_ = x.std(axis=0) + 1e-9
+        self.model.fit(self._standardise(features))
+        ref = -self.model.score_samples(self._standardise(features))
+        self.threshold_ = float(np.quantile(ref, self.quantile))
+        return self
+
+    def score(self, features: pd.DataFrame) -> pd.DataFrame:
+        """``score`` (higher = more anomalous) and ``flag`` (score above the reference
+        quantile) for new readings."""
+        s = -self.model.score_samples(self._standardise(features))
+        return pd.DataFrame({"score": s, "flag": s > self.threshold_}, index=features.index)
+
+
+def model_residual(
+    df: pd.DataFrame,
+    fit: SecondOrderFit | tuple[float, float, float],
+    window: str = "5min",
+    threshold_c: float = 0.3,
+) -> pd.DataFrame:
+    """Detector 3 -- drift of the measured temperature away from the fitted thermal model.
+
+    The heater-lag model's delivered-heat state ``E`` depends only on the logged relay
+    history, so it can be reconstructed exactly from the telemetry. From it and the
+    measured temperature the model predicts the next 15-second temperature step; the
+    residual (measured minus predicted step) is summed over a rolling ``window`` to give the
+    *drift*: how far the chamber has moved from what the physics says it should have done
+    over the last few minutes. ``|drift| > threshold_c`` is flagged.
+
+    This is the detector that knows what the heater is supposed to do, so a relay that is on
+    while logged off, or an open door, shows up as drift even when the slope itself looks
+    ordinary. It needs a fitted model (from a known-good day) and it inherits the model's
+    structural errors. Returns ``drift`` (°C) and ``flag``.
+    """
+    if isinstance(fit, SecondOrderFit):
+        a, tau_h, b = fit.a_c_per_min, fit.tau_h_min, fit.b_per_min
+    else:
+        a, tau_h, b = fit
+    minutes = (df.index - df.index[0]).total_seconds().to_numpy() / 60.0
+    dt = np.diff(minutes)
+    u = df["heater"].to_numpy(dtype=float)
+    temp = df["temp"].to_numpy(dtype=float)
+    t_out = df["temp_out"].to_numpy(dtype=float)
+    flow = np.zeros(len(df))
+    for k in range(1, len(df)):
+        target = a * u[k - 1]
+        flow[k] = target + (flow[k - 1] - target) * np.exp(-dt[k - 1] / tau_h)
+    predicted_step = dt * (0.5 * (flow[:-1] + flow[1:]) - b * (temp[:-1] - t_out[:-1]))
+    residual = np.r_[0.0, np.diff(temp) - predicted_step]
+    drift = pd.Series(residual, index=df.index).rolling(window).sum()
+    out = pd.DataFrame({"drift": drift})
+    out["flag"] = out["drift"].abs() > threshold_c
+    return out

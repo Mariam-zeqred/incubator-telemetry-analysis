@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from incubator import anomaly as an  # noqa: E402
+from incubator import faults as fl  # noqa: E402
 from incubator import features as fe  # noqa: E402
 from incubator import thermal_fit as tf  # noqa: E402
 from incubator.load import load_history, load_stress_log, summary  # noqa: E402
@@ -344,6 +345,88 @@ def fig_second_order(df: pd.DataFrame, seg: pd.DataFrame) -> dict[str, object]:
     }
 
 
+FAULT_TRIALS = 20
+
+
+def fig_faults(df: pd.DataFrame, second: tf.SecondOrderFit) -> dict[str, object]:
+    """Figure 08: one example of each injected fault with the flags of two detectors, and
+    the Monte-Carlo scoring table (``FAULT_TRIALS`` random positions per fault kind)."""
+    detectors = fl.default_detectors(df, second)
+    trials = fl.run_trials(df, second, detectors=detectors, n_trials=FAULT_TRIALS, seed=0)
+    table = fl.summarise(trials)
+
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6.4), sharey=False)
+    for ax, kind in zip(axes.ravel(), fl.FAULT_KINDS, strict=True):
+        starts = trials.loc[trials["kind"] == kind, "start_utc"].drop_duplicates().sort_values()
+        start = starts.iloc[len(starts) // 2]  # the median trial, not the earliest one
+        fault = fl.make_fault(kind, start)
+        faulted, labels = fl.inject(df, fault, second)
+        lo, hi = fault.start - pd.Timedelta(minutes=10), fault.end + pd.Timedelta(minutes=25)
+        ax.axvspan(
+            fault.start,
+            fault.end if fault.duration else fault.start + pd.Timedelta(seconds=15),
+            color="#fbe9b7",
+            lw=0,
+        )
+        ax.plot(df.index, df["temp"], color=GRAY, lw=1, ls=":", label="real")
+        ax.plot(faulted.index, faulted["temp"], color=BLUE, lw=1.4, label="with fault")
+        for name, color, marker, dy in (
+            ("zscore", RED, "o", 0.0),
+            ("model_drift", AQUA, "v", -0.25),
+        ):
+            flags = detectors[name](faulted)
+            idx = flags.index[flags.to_numpy()]
+            idx = idx[(idx >= lo) & (idx <= hi)]
+            ax.scatter(
+                idx,
+                faulted.loc[idx, "temp"] + dy,
+                s=22,
+                marker=marker,
+                color=color,
+                label=name,
+                zorder=4,
+            )
+        ax.set_xlim(lo, hi)
+        win = faulted.loc[lo:hi, "temp"]
+        ax.set_ylim(win.min() - 0.6, win.max() + 0.6)
+        ax.set_title(f"{kind} @ {start.strftime('%H:%M')} UTC", fontsize=9)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz="UTC"))
+        ax.tick_params(labelsize=8)
+    axes[0, 0].legend(loc="upper left", fontsize=7)
+    fig.suptitle(
+        "Injected faults (yellow) and what two detectors flag; the other two are in the table",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "08_faults.png")
+    plt.close(fig)
+
+    rows = []
+    for _, r in table.iterrows():
+        rows.append(
+            {
+                "kind": r["kind"],
+                "detector": r["detector"],
+                "detection_rate": round(float(r["detection_rate"]), 2),
+                "null_detection_rate": round(float(r["null_detection_rate"]), 2),
+                "precision": None if pd.isna(r["precision"]) else round(float(r["precision"]), 2),
+                "recall": None if pd.isna(r["recall"]) else round(float(r["recall"]), 2),
+                "fp_episodes_per_trial": round(float(r["fp_episodes_per_trial"]), 2),
+            }
+        )
+    clean_flags = {name: int(det(df).sum()) for name, det in detectors.items()}
+    return {
+        "trials_per_kind": FAULT_TRIALS,
+        "fault_defaults": {
+            k: {"duration_min": v[0].total_seconds() / 60.0, "magnitude": v[1]}
+            for k, v in fl.DEFAULTS.items()
+        },
+        "model_drift_threshold_c": round(float(detectors["model_drift"].threshold_c), 3),
+        "clean_day_flags": clean_flags,
+        "scores": rows,
+    }
+
+
 def fig_stress(stress: pd.DataFrame) -> dict[str, object]:
     fig, ax = plt.subplots(figsize=(10, 3.4))
     for _, row in stress[stress["heater"]].iterrows():
@@ -419,6 +502,7 @@ def main() -> None:
     anomalies = fig_anomalies(df)
     model = fig_model(df)
     second = fig_second_order(df, seg)
+    faults = fig_faults(df, tf.fit_second_order(df))
     stress_facts = fig_stress(stress)
 
     on = rates[rates["heater"]]
@@ -472,6 +556,7 @@ def main() -> None:
         "anomalies": anomalies,
         "thermal_model": model,
         "second_order_model": second,
+        "fault_scoring": faults,
         "stress_log": stress_facts,
     }
     (FIG_DIR / "results.json").write_text(json.dumps(results, indent=2) + "\n")

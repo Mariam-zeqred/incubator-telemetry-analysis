@@ -59,6 +59,7 @@ default; pass ``physical=False`` to see the other one.
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -308,8 +309,12 @@ def _simulate_second_order(
     ul, tl, dl = u.tolist(), t_out.tolist(), dt_min.tolist()
     for k in range(1, n):
         step = dl[k - 1]
-        e = e + step * (a * ul[k - 1] - e) / tau_h
-        t = t + step * (e - b * (t - tl[k - 1]))
+        target = a * ul[k - 1]
+        # E has an exact solution for a constant relay state over the step; using it keeps
+        # the integration stable across the occasional long gap between readings.
+        e_next = target + (e - target) * math.exp(-step / tau_h)
+        t = t + step * (0.5 * (e + e_next) - b * (t - tl[k - 1]))
+        e = e_next
         temp[k], flow[k] = t, e
     return temp, flow
 
