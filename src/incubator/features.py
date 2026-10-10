@@ -126,7 +126,10 @@ def time_to_target(df: pd.DataFrame, tolerance_c: float = 0.2) -> pd.DataFrame:
         period = df.loc[(df.index >= t0) & (df.index < t1)]
         target = float(change["new_target"])
         upward = target > float(change["temp_at_change"])
-        hit = period["temp"] >= target - tolerance_c if upward else period["temp"] <= target + tolerance_c
+        if upward:
+            hit = period["temp"] >= target - tolerance_c
+        else:
+            hit = period["temp"] <= target + tolerance_c
         reached = bool(hit.any())
         minutes = float((hit.idxmax() - t0).total_seconds() / 60.0) if reached else np.nan
         rows.append(

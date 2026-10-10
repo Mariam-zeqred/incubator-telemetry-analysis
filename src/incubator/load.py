@@ -102,11 +102,7 @@ def load_history(path: str | Path = HISTORY_FILE) -> pd.DataFrame:
     df["elapsed_s"] = df["elapsed_s"].astype(int)
     df["cycle_code"] = df["cycle_code"].astype(str)
 
-    df = (
-        df.sort_values("time")
-        .drop_duplicates(subset="time", keep="first")
-        .set_index("time")
-    )
+    df = df.sort_values("time").drop_duplicates(subset="time", keep="first").set_index("time")
     df["dt_s"] = df.index.to_series().diff().dt.total_seconds()
     return df[HISTORY_COLUMNS]
 
