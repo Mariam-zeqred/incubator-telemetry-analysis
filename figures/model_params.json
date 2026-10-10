@@ -1,0 +1,64 @@
+{
+  "source": "incubator-telemetry-analysis/scripts/make_figures.py, fitted on data/hive-1C5A00_history_2026-10-03.json (1 367 readings, one device, one day)",
+  "units": {
+    "temperature": "\u00b0C",
+    "time": "min",
+    "heater": "0/1 relay state"
+  },
+  "first_order": {
+    "equation": "dT/dt = a*u(t - d) - b*(T - T_out)",
+    "a_c_per_min": 0.5539,
+    "a_se": 0.002,
+    "b_per_min": 0.0101,
+    "b_se": 0.0001,
+    "dead_time_readings": 14,
+    "dead_time_s": 210.0,
+    "n": 1367,
+    "rmse_c": 0.2877,
+    "r2": 0.9925,
+    "tau_min": 99.1649,
+    "tau_se_min": 0.5559,
+    "full_power_rise_c": 54.9294
+  },
+  "second_order": {
+    "equation": "dE/dt = (a*u - E)/tau_h ; dT/dt = E - b*(T - T_out)",
+    "a_c_per_min": 0.5921,
+    "a_se": 0.0015,
+    "tau_h_min": 5.1943,
+    "tau_h_se": 0.0514,
+    "b_per_min": 0.0111,
+    "b_se": 0.0,
+    "dead_time_readings": 0,
+    "dead_time_s": 0.0,
+    "n": 1367,
+    "rmse_c": 0.16,
+    "r2": 0.9977,
+    "physical_branch": true,
+    "tau_min": 90.1177,
+    "tau_se_min": 0.3214,
+    "full_power_rise_c": 53.3559
+  },
+  "second_order_other_branch": {
+    "note": "mirror solution (slow heater, fast chamber); same heater response, rejected because the 92-min cool-down measures b ~ 0.01, see thermal_fit.py",
+    "a_c_per_min": 11.5128,
+    "a_se": 0.1158,
+    "tau_h_min": 99.9105,
+    "tau_h_se": 0.329,
+    "b_per_min": 0.2168,
+    "b_se": 0.0021,
+    "dead_time_readings": 0,
+    "dead_time_s": 0.0,
+    "n": 1367,
+    "rmse_c": 0.1358,
+    "r2": 0.9983,
+    "physical_branch": false,
+    "tau_min": 4.6129,
+    "tau_se_min": 0.0442,
+    "full_power_rise_c": 53.1071
+  },
+  "notes": [
+    "a, b and tau_h are identifiable from temperature alone; R, C and P separately need the heater's electrical power (FirstOrderFit.physical).",
+    "Standard errors are OLS values with autocorrelated residuals: optimistic.",
+    "Ambient on the day was 27.2-28.3 \u00b0C; the door stayed shut."
+  ]
+}

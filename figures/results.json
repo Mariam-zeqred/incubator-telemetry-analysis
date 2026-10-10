@@ -202,6 +202,61 @@
     "open_loop_rmse_c_full": 0.288,
     "open_loop_rmse_c_clean": 0.699
   },
+  "second_order_model": {
+    "second_order": {
+      "a_c_per_min": 0.5921,
+      "a_se": 0.0015,
+      "tau_h_min": 5.1943,
+      "tau_h_se": 0.0514,
+      "b_per_min": 0.0111,
+      "b_se": 0.0,
+      "dead_time_readings": 0,
+      "dead_time_s": 0.0,
+      "n": 1367,
+      "rmse_c": 0.16,
+      "r2": 0.9977,
+      "physical_branch": true,
+      "tau_min": 90.1177,
+      "tau_se_min": 0.3214,
+      "full_power_rise_c": 53.3559
+    },
+    "second_order_other_branch_rmse_c": 0.1358,
+    "comparison": {
+      "n": 1367,
+      "first_order_rmse_c": 0.2877,
+      "second_order_rmse_c": 0.16,
+      "rmse_ratio": 0.5563,
+      "first_order_aic": -3400.5129,
+      "second_order_aic": -5003.9147,
+      "delta_aic": -1603.4018
+    },
+    "post_switch_peaks": [
+      {
+        "run_start_utc": "10:02",
+        "measured_rise_c": 3.37,
+        "first_order_rise_c": 3.37,
+        "second_order_rise_c": 3.29,
+        "measured_minutes_to_peak": 14.0,
+        "second_order_minutes_to_peak": 14.5
+      },
+      {
+        "run_start_utc": "11:49",
+        "measured_rise_c": 1.43,
+        "first_order_rise_c": 1.88,
+        "second_order_rise_c": 1.48,
+        "measured_minutes_to_peak": 9.2,
+        "second_order_minutes_to_peak": 10.2
+      },
+      {
+        "run_start_utc": "13:09",
+        "measured_rise_c": 1.85,
+        "first_order_rise_c": 2.28,
+        "second_order_rise_c": 2.16,
+        "measured_minutes_to_peak": 16.0,
+        "second_order_minutes_to_peak": 16.2
+      }
+    ]
+  },
   "stress_log": {
     "rows": 33,
     "span_min": 120.4,

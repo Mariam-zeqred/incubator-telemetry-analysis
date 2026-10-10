@@ -239,6 +239,111 @@ def fig_model(df: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def fig_second_order(df: pd.DataFrame, seg: pd.DataFrame) -> dict[str, object]:
+    """Figure 07: first- vs second-order model, whole trace and a zoom on the first run.
+
+    Also writes ``figures/model_params.json``, the hand-over file for the control-simulation
+    repo, and returns the comparison facts for ``results.json``.
+    """
+    first = tf.fit_first_order(df)
+    second = tf.fit_second_order(df, max_dead_time=4)  # max_dead_time>0 only to show d=0 wins
+    other_branch = tf.fit_second_order(df, physical=False)
+    heater, t_out = df["heater"].to_numpy(), df["temp_out"].to_numpy()
+    dt = np.diff((df.index - df.index[0]).total_seconds().to_numpy() / 60.0)
+    sim1 = tf.simulate(first, heater, t_out, df["temp"].iloc[0], dt)
+    sim2 = tf.simulate_second_order(second, heater, t_out, df["temp"].iloc[0], dt)
+    measured = df["temp"].to_numpy()
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), height_ratios=[1.4, 1])
+    for ax in (ax1, ax2):
+        _shade_heater(ax, df)
+        ax.plot(df.index, measured, color=BLUE, lw=1.6, label="measured")
+        ax.plot(
+            df.index,
+            sim1,
+            color=ORANGE,
+            lw=1.3,
+            ls="--",
+            label=f"1st order + {first.dead_time_s / 60:.1f} min dead time "
+            f"(RMSE {first.rmse_c:.2f} °C)",
+        )
+        ax.plot(
+            df.index,
+            sim2,
+            color=AQUA,
+            lw=1.3,
+            label=f"2nd order, heater lag τh = {second.tau_h_min:.1f} min "
+            f"(RMSE {second.rmse_c:.2f} °C)",
+        )
+        ax.set_ylabel("°C")
+    ax1.set_title("Both models simulated open-loop from the first reading")
+    ax1.legend(loc="lower right")
+    _time_axis(ax1)
+    zoom_lo, zoom_hi = (
+        pd.Timestamp("2026-10-03 10:00", tz="UTC"),
+        pd.Timestamp("2026-10-03 10:50", tz="UTC"),
+    )
+    ax2.set_xlim(zoom_lo, zoom_hi)
+    m = (df.index >= zoom_lo) & (df.index <= zoom_hi)
+    ax2.set_ylim(measured[m].min() - 0.5, measured[m].max() + 0.7)
+    ax2.set_title(
+        "Zoom: first heater run from cold; the rise after switch-off is the lag "
+        "the 2nd-order model explains"
+    )
+    _time_axis(ax2)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "07_second_order.png")
+    plt.close(fig)
+
+    # does the lag model reproduce the post-switch peaks after the three long runs?
+    peaks = []
+    for _, row in seg[seg["heater"] & (seg["duration_min"] >= 5)].iterrows():
+        i_off = df.index.get_loc(row["end"])
+        after = slice(i_off, i_off + 80)  # 20 min
+        peaks.append(
+            {
+                "run_start_utc": row["start"].strftime("%H:%M"),
+                "measured_rise_c": round(float(measured[after].max() - measured[i_off]), 2),
+                "first_order_rise_c": round(float(sim1[after].max() - sim1[i_off]), 2),
+                "second_order_rise_c": round(float(sim2[after].max() - sim2[i_off]), 2),
+                "measured_minutes_to_peak": round(float(np.argmax(measured[after]) * 0.25), 1),
+                "second_order_minutes_to_peak": round(float(np.argmax(sim2[after]) * 0.25), 1),
+            }
+        )
+
+    params = {
+        "source": "incubator-telemetry-analysis/scripts/make_figures.py, fitted on "
+        "data/hive-1C5A00_history_2026-10-03.json (1 367 readings, one device, one day)",
+        "units": {"temperature": "°C", "time": "min", "heater": "0/1 relay state"},
+        "first_order": {
+            "equation": "dT/dt = a*u(t - d) - b*(T - T_out)",
+            **_round(first.as_dict()),
+        },
+        "second_order": {
+            "equation": "dE/dt = (a*u - E)/tau_h ; dT/dt = E - b*(T - T_out)",
+            **_round(second.as_dict()),
+        },
+        "second_order_other_branch": {
+            "note": "mirror solution (slow heater, fast chamber); same heater response, "
+            "rejected because the 92-min cool-down measures b ~ 0.01, see thermal_fit.py",
+            **_round(other_branch.as_dict()),
+        },
+        "notes": [
+            "a, b and tau_h are identifiable from temperature alone; R, C and P separately "
+            "need the heater's electrical power (FirstOrderFit.physical).",
+            "Standard errors are OLS values with autocorrelated residuals: optimistic.",
+            "Ambient on the day was 27.2-28.3 °C; the door stayed shut.",
+        ],
+    }
+    (FIG_DIR / "model_params.json").write_text(json.dumps(params, indent=2) + "\n")
+    return {
+        "second_order": _round(second.as_dict()),
+        "second_order_other_branch_rmse_c": round(other_branch.rmse_c, 4),
+        "comparison": _round(tf.compare_models(first, second)),
+        "post_switch_peaks": peaks,
+    }
+
+
 def fig_stress(stress: pd.DataFrame) -> dict[str, object]:
     fig, ax = plt.subplots(figsize=(10, 3.4))
     for _, row in stress[stress["heater"]].iterrows():
@@ -313,6 +418,7 @@ def main() -> None:
     rates = fig_rates(seg)
     anomalies = fig_anomalies(df)
     model = fig_model(df)
+    second = fig_second_order(df, seg)
     stress_facts = fig_stress(stress)
 
     on = rates[rates["heater"]]
@@ -365,6 +471,7 @@ def main() -> None:
         "duty_cycle_10min": {"mean": round(float(dc.mean()), 3), "max": round(float(dc.max()), 3)},
         "anomalies": anomalies,
         "thermal_model": model,
+        "second_order_model": second,
         "stress_log": stress_facts,
     }
     (FIG_DIR / "results.json").write_text(json.dumps(results, indent=2) + "\n")

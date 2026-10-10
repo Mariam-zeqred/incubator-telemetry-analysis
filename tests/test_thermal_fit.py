@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 
 from incubator import thermal_fit as t
-from tests.conftest import synthetic_trace
+from tests.conftest import synthetic_trace, synthetic_trace_second_order
 
 
 def test_fit_recovers_parameters_on_synthetic_trace():
@@ -39,3 +40,46 @@ def test_real_data_fit_is_sane(history):
     assert 0.2 < fit.a_c_per_min < 1.0
     assert 30 < fit.tau_min < 300
     assert fit.r2 > 0.95
+
+
+def test_second_order_recovers_parameters_on_synthetic_trace():
+    df = synthetic_trace_second_order(a=0.5, tau_h=5.0, b=0.01, noise_c=0.01)
+    fit = t.fit_second_order(df)
+    assert fit.dead_time_readings == 0 and fit.physical_branch
+    assert abs(fit.a_c_per_min - 0.5) < 0.02
+    assert abs(fit.tau_h_min - 5.0) < 0.3
+    assert abs(fit.b_per_min - 0.01) < 0.001
+    assert fit.rmse_c < 0.05
+    assert fit.time_constants_min[0] < fit.time_constants_min[1]
+    assert np.isclose(fit.full_power_rise_c, fit.a_c_per_min / fit.b_per_min)
+
+
+def test_second_order_simulate_matches_generator():
+    df = synthetic_trace_second_order(a=0.5, tau_h=5.0, b=0.01, n=400)
+    sim = t.simulate_second_order(
+        (0.5, 5.0, 0.01), df["heater"].to_numpy(), df["temp_out"].to_numpy(), 26.0, 0.25
+    )
+    assert np.abs(sim - df["temp"].to_numpy()).max() < 0.01
+
+
+def test_second_order_beats_first_order_on_real_data(history):
+    first = t.fit_first_order(history, max_dead_time=16)
+    second = t.fit_second_order(history, max_dead_time=2)
+    assert second.dead_time_readings == 0  # the lag model needs no dead time
+    assert second.rmse_c < 0.7 * first.rmse_c
+    assert 2 < second.tau_h_min < 10
+    assert 60 < second.tau_min < 150
+    cmp = t.compare_models(first, second)
+    assert cmp["delta_aic"] < 0
+    # the two branches share the heater response; only the ambient path differs
+    other = t.fit_second_order(history, physical=False)
+    assert not other.physical_branch
+    assert abs(other.full_power_rise_c - second.full_power_rise_c) < 3.0
+
+
+def test_compare_models_requires_same_readings():
+    df = synthetic_trace(n=400)
+    first = t.fit_first_order(df, max_dead_time=1)
+    second = t.fit_second_order(df.iloc[:300])
+    with pytest.raises(ValueError):
+        t.compare_models(first, second)
