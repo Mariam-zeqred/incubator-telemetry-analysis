@@ -1,0 +1,34 @@
+time_local,phase,cycle,temp,hum,heater,fan,targetTemp,alarm,runState,crashCount,reset,heaterOnMs,uptimeMs,tempOut,action
+2026-10-10 14:07:38,HEAT,0,28.45,55.7,False,False,31.2,none,PAUSED,6,None,0,664436,26.74,fw 1.1.5 not in ('1.1.6';) - waiting
+2026-10-10 14:23:59,HEAT,0,28.19,56.0,False,False,31.2,none,PAUSED,6,None,0,1654442,26.7,fw 1.1.5 not in ('1.1.6';) - waiting
+2026-10-10 14:26:00,HEAT,0,28.16,56.0,False,False,31.2,none,PAUSED,6,None,0,1774354,26.72,fw 1.1.5 not in ('1.1.6';) - waiting
+2026-10-10 14:28:00,HEAT,0,28.14,56.0,False,False,31.2,none,PAUSED,6,software restart,0,48180,26.73,PAUSED -> resumeCmd sent (auto resume 1/3)
+2026-10-10 14:30:00,HEAT,0,28.09,56.1,False,False,31.2,none,PAUSED,7,other watchdog,0,93338,26.72,PAUSED -> resumeCmd sent (auto resume 2/3)
+2026-10-10 15:14:01,HEAT,0,31.26,52.5,False,True,31.2,W01,RUNNING,7,other watchdog,0,2734346,27.71,target -> 38.8
+2026-10-10 15:15:59,HEAT,0,31.45,52.2,True,True,38.8,W01,RUNNING,7,other watchdog,104126,2854360,27.77,target 38.8 (unchanged)
+2026-10-10 15:18:00,HEAT,0,32.1,51.3,True,True,38.8,W01,RUNNING,7,other watchdog,224140,2974374,27.78,target 38.8 (unchanged)
+2026-10-10 15:20:00,HEAT,0,32.87,50.4,True,True,38.8,W01,RUNNING,7,other watchdog,344050,3094284,27.81,target 38.8 (unchanged)
+2026-10-10 15:21:59,HEAT,0,33.67,49.5,True,True,38.8,W01,RUNNING,7,other watchdog,464063,3214297,27.85,target 38.8 (unchanged)
+2026-10-10 15:23:59,HEAT,0,34.49,48.7,True,True,38.8,W01,RUNNING,7,other watchdog,584077,3334311,27.92,target 38.8 (unchanged)
+2026-10-10 15:25:59,HEAT,0,35.13,47.9,True,True,38.8,W01,RUNNING,7,other watchdog,44093,3454327,28.0,target 38.8 (unchanged)
+2026-10-10 15:27:59,HEAT,0,35.78,47.2,True,True,38.8,W01,RUNNING,7,other watchdog,164103,3574337,28.11,target 38.8 (unchanged)
+2026-10-10 15:29:59,HEAT,0,36.53,46.5,True,True,38.8,W01,RUNNING,7,other watchdog,284117,3694351,28.25,target 38.8 (unchanged)
+2026-10-10 15:32:00,HEAT,0,37.27,45.8,True,True,38.8,W01,RUNNING,7,other watchdog,404131,3814365,28.35,target 38.8 (unchanged)
+2026-10-10 15:33:59,HEAT,0,37.96,45.2,False,True,38.8,W01,RUNNING,7,other watchdog,0,3934380,28.52,target 38.8 (unchanged)
+2026-10-10 15:35:59,HEAT,0,38.2,44.9,True,True,38.8,W01,RUNNING,7,other watchdog,39260,4054494,28.64,target 38.8 (unchanged)
+2026-10-10 15:37:59,PEAK,0,38.55,44.5,False,True,38.8,W01,RUNNING,7,other watchdog,0,4174301,28.8,target 38.8 (unchanged) ; reached 38.55 -> PEAK
+2026-10-10 15:39:59,PEAK,0,38.66,44.3,False,True,38.8,W01,RUNNING,7,other watchdog,0,4294314,28.95,target 38.8 (unchanged)
+2026-10-10 15:41:59,PEAK,0,38.75,44.2,False,True,38.8,W01,RUNNING,7,other watchdog,0,4414327,29.08,target 38.8 (unchanged)
+2026-10-10 15:44:00,COOL,0,38.65,44.2,False,True,38.8,W01,RUNNING,7,other watchdog,0,4534341,29.25,target -> 38.1
+2026-10-10 15:46:00,COOL,0,38.5,44.3,False,True,38.1,W01,RUNNING,7,other watchdog,0,4654354,29.32,target -> 38.0
+2026-10-10 15:48:00,COOL,0,38.31,44.4,False,True,38.0,W01,RUNNING,7,other watchdog,0,4774367,29.4,target -> 37.8
+2026-10-10 15:50:00,COOL,0,38.14,44.5,False,True,37.8,W01,RUNNING,7,other watchdog,0,4894382,29.47,target -> 37.6
+2026-10-10 15:52:00,COOL,0,37.95,44.6,False,True,37.6,W01,RUNNING,7,other watchdog,0,5014501,29.53,target -> 37.4
+2026-10-10 15:54:00,COOL,0,37.78,44.7,False,True,37.4,W01,RUNNING,7,other watchdog,0,5134304,29.56,target -> 37.2
+2026-10-10 15:56:00,COOL,0,37.6,44.8,False,True,37.2,W01,RUNNING,7,other watchdog,0,5254317,29.54,target -> 37.1
+2026-10-10 15:58:00,COOL,0,37.41,44.8,False,True,37.1,W01,RUNNING,7,other watchdog,0,5374331,29.54,target -> 36.9
+2026-10-10 16:00:00,COOL,0,37.23,44.9,False,True,36.9,W01,RUNNING,7,other watchdog,0,5494344,29.54,target -> 36.7
+2026-10-10 16:02:00,COOL,0,37.1,45.0,False,True,36.7,W01,RUNNING,7,other watchdog,0,5614358,29.54,target -> 36.6
+2026-10-10 16:04:00,COOL,0,36.98,45.1,False,True,36.6,W01,RUNNING,7,other watchdog,0,5735292,29.54,target -> 36.4
+2026-10-10 16:06:00,COOL,0,36.82,45.2,False,True,36.4,W01,RUNNING,7,other watchdog,0,5856329,29.53,target -> 36.3
+2026-10-10 16:08:00,COOL,0,36.71,45.2,False,True,36.3,W01,RUNNING,7,other watchdog,0,5976353,29.52,target -> 36.2
