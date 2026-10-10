@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from incubator import features as f
 from incubator.features import FEATURE_COLUMNS, SEGMENT_COLUMNS
@@ -44,3 +45,31 @@ def test_feature_table(history):
     assert len(ft) == len(history) - 4
     assert not ft.isna().any().any()
     assert ft["min_since_switch"].min() == 0.0
+
+
+def test_absolute_humidity_known_values():
+    # 20 °C saturated air holds about 17.3 g/m³; 30 °C at 50 % about 15.2 g/m³
+    assert abs(f.absolute_humidity(np.array([20.0]), np.array([100.0]))[0] - 17.3) < 0.1
+    assert abs(f.absolute_humidity(np.array([30.0]), np.array([50.0]))[0] - 15.2) < 0.1
+    s = f.absolute_humidity(pd.Series([25.0, 25.0]), pd.Series([40.0, 80.0]))
+    assert isinstance(s, pd.Series) and np.isclose(s.iloc[1], 2 * s.iloc[0])
+
+
+def test_humidity_table(history):
+    h = f.humidity_table(history)
+    assert len(h) == len(history) and not h.isna().any().any()
+    assert (h["ah_in"] > 0).all() and (h["ah_in"] < 40).all()
+    # the real-data fact: RH inside stays in a narrow band while the chamber warms 12 °C,
+    # so the vapour density inside *rises* with temperature instead of staying constant
+    assert h["rh_in"].between(65, 85).all()
+    assert h["ah_in"].corr(history["temp"]) > 0.9
+    assert h["ah_in"].iloc[-100:].mean() > h["ah_in"].iloc[:100].mean() + 5
+    assert h["ah_out"].std() < 1.0
+
+
+def test_lag_horizon_argument(history):
+    short = f.heater_segments(history, lag_horizon="2min")
+    long = f.heater_segments(history, lag_horizon="20min")
+    on = short["heater"] & short["post_switch_rise"].notna()
+    assert (long.loc[on, "post_switch_rise"] >= short.loc[on, "post_switch_rise"] - 1e-9).all()
+    assert long.loc[on, "post_switch_rise"].max() > 3.0

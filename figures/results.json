@@ -511,6 +511,26 @@
       }
     ]
   },
+  "humidity": {
+    "rh_in_range": [
+      67.1,
+      81.5
+    ],
+    "rh_out_range": [
+      44.4,
+      53.5
+    ],
+    "ah_in_first_10min_g_m3": 21.8,
+    "ah_in_last_10min_g_m3": 31.9,
+    "ah_out_mean_g_m3": 12.8,
+    "ah_out_std_g_m3": 0.38,
+    "steady_state_38_8": {
+      "rh_in_mean": 67.5,
+      "ah_in_mean": 32.2,
+      "ah_ratio_in_out": 2.57
+    },
+    "corr_ah_in_temp": 0.983
+  },
   "stress_log": {
     "rows": 33,
     "span_min": 120.4,

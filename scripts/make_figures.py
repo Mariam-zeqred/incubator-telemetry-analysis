@@ -427,6 +427,46 @@ def fig_faults(df: pd.DataFrame, second: tf.SecondOrderFit) -> dict[str, object]
     }
 
 
+def fig_humidity(df: pd.DataFrame) -> dict[str, object]:
+    """Figure 09: relative and absolute humidity inside vs outside."""
+    h = fe.humidity_table(df)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    for ax in (ax1, ax2):
+        _shade_heater(ax, df)
+    ax1.plot(h.index, h["rh_in"], color=BLUE, lw=1.4, label="inside")
+    ax1.plot(h.index, h["rh_out"], color=ORANGE, lw=1.4, label="outside")
+    ax1.set_ylabel("relative humidity (%)")
+    ax1.set_title("Relative humidity: inside it stays at 67–75 % after the first warm-up")
+    ax1.legend(loc="center right")
+    ax2.plot(h.index, h["ah_in"], color=BLUE, lw=1.4, label="inside")
+    ax2.plot(h.index, h["ah_out"], color=ORANGE, lw=1.4, label="outside")
+    ax2.set_ylabel("absolute humidity (g/m³)")
+    ax2.set_title(
+        "Absolute humidity: vapour density inside rises with temperature, outside stays flat"
+    )
+    ax2.legend(loc="center right")
+    _time_axis(ax2)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "09_humidity.png")
+    plt.close(fig)
+    first, last = h.iloc[:40], h.iloc[-40:]  # first and last 10 minutes
+    steady = h.loc["2026-10-03 13:35":"2026-10-03 15:39"]
+    return {
+        "rh_in_range": [float(h["rh_in"].min()), float(h["rh_in"].max())],
+        "rh_out_range": [float(h["rh_out"].min()), float(h["rh_out"].max())],
+        "ah_in_first_10min_g_m3": round(float(first["ah_in"].mean()), 1),
+        "ah_in_last_10min_g_m3": round(float(last["ah_in"].mean()), 1),
+        "ah_out_mean_g_m3": round(float(h["ah_out"].mean()), 1),
+        "ah_out_std_g_m3": round(float(h["ah_out"].std()), 2),
+        "steady_state_38_8": {
+            "rh_in_mean": round(float(steady["rh_in"].mean()), 1),
+            "ah_in_mean": round(float(steady["ah_in"].mean()), 1),
+            "ah_ratio_in_out": round(float(steady["ah_in"].mean() / steady["ah_out"].mean()), 2),
+        },
+        "corr_ah_in_temp": round(float(h["ah_in"].corr(df["temp"])), 3),
+    }
+
+
 def fig_stress(stress: pd.DataFrame) -> dict[str, object]:
     fig, ax = plt.subplots(figsize=(10, 3.4))
     for _, row in stress[stress["heater"]].iterrows():
@@ -503,6 +543,7 @@ def main() -> None:
     model = fig_model(df)
     second = fig_second_order(df, seg)
     faults = fig_faults(df, tf.fit_second_order(df))
+    humidity = fig_humidity(df)
     stress_facts = fig_stress(stress)
 
     on = rates[rates["heater"]]
@@ -557,6 +598,7 @@ def main() -> None:
         "thermal_model": model,
         "second_order_model": second,
         "fault_scoring": faults,
+        "humidity": humidity,
         "stress_log": stress_facts,
     }
     (FIG_DIR / "results.json").write_text(json.dumps(results, indent=2) + "\n")

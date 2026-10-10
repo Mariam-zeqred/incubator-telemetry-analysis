@@ -1,24 +1,21 @@
 # TODO (next session on this repo)
 
-Status after session 1 (2026-10-10): package, tests, figures, notebooks, README and
-WALKTHROUGH are in place and `make check` passes. Spec items 1–7 of PLAN.md #1 are done at
-first-order level. What remains, in priority order:
+Status after session 2 (2026-10-10): every item of the PLAN.md #1 spec is done. Second-order
+model, scored detectors (with a model-drift detector added), humidity, CI and the small
+refactors from session 1's list are all in; `make check` passes with 29 tests and nine
+figures. What is left is data-bound or belongs to other repos:
 
-1. **Second-order thermal model** in `thermal_fit.py`: heater element temperature `H` with
-   its own `C_h`, `R_h` feeding the chamber. Fit it the same output-error way, compare RMSE
-   and AIC with the first-order fit, and check whether it removes the 3–4 min dead time and
-   reproduces the 1.4–3.4 °C post-switch rise. Export both parameter sets to
-   `figures/model_params.json` for the control-simulation repo (PLAN.md #13).
-2. **Scored anomaly comparison**: inject synthetic faults into the real trace (sensor stuck,
-   heater relay stuck on/off, door open = step increase in loss, dropout) with a generator
-   in `src/incubator/faults.py`, and report precision/recall per detector in
-   `02_anomalies.ipynb` and the README. Keep the "no real faults in this day" statement.
-3. **Humidity**: absolute humidity from `temp`/`hum`, inside vs outside, during heat-up;
-   one figure and a paragraph (see WALKTHROUGH extension).
-4. **Data**: the `heater_stress_log` in the repo is 2 h, not the 72 h endurance run the plan
-   describes. If Mariam exports the full log or more history days, add them under `data/`
-   (keep under 10 MB each), extend `load.py` to load several history files, and re-run.
-5. **CI**: `.github/workflows/check.yml` running `make check` on Python 3.11/3.12.
-6. Small: `heater_segments` could take a `lag_horizon` argument instead of the fixed 2 min;
-   the `CLEAN_WINDOWS` constant in `scripts/make_figures.py` could be derived from the
-   segment table instead of hand-typed.
+1. **A second day of data.** Everything in the README rests on 3 Oct 2026. When Mariam
+   exports another history day (or the full 72-hour heater log), put it under `data/`
+   (under 10 MB), extend `load_history` to accept several files, re-fit the models on one
+   day and score the drift detector on the other. That answers the "circular" question in
+   WALKTHROUGH.md properly. Until then nothing more can honestly be claimed.
+2. **Heater power.** One measurement of the heater's electrical power turns `a`, `b` into
+   R, C, P (`FirstOrderFit.physical`). Record it in `data/README` or `model_params.json`.
+3. **Sampling-interval watchdog**: a trivial rule (`dt_s > 60`) in `anomaly.py` so that
+   dropouts are caught on purpose rather than as a side effect of the drift detector; add it
+   to `faults.default_detectors` and the table.
+4. Optional: the IsolationForest table rows could be revisited with the cold start removed
+   from the reference day; expected to help little, and it is documented as a finding now.
+5. `CLEAN_WINDOWS` in `scripts/make_figures.py` stays hand-typed on purpose (documented in
+   the WALKTHROUGH as the one hand-chosen input); fine to leave.

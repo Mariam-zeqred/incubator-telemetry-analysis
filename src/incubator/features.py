@@ -24,16 +24,17 @@ SEGMENT_COLUMNS = [
 ]
 
 
-def heater_segments(df: pd.DataFrame) -> pd.DataFrame:
+def heater_segments(df: pd.DataFrame, lag_horizon: str = "2min") -> pd.DataFrame:
     """Split the trace into maximal runs of constant heater state.
 
     One row per run with its duration, start/end temperatures, the mean outside
     temperature, the setpoint at the start, a least-squares temperature slope over the run
     (°C/min, NaN for runs shorter than 3 readings) and ``post_switch_rise``: how much the
-    temperature kept rising *after* the run ended (max over the next 2 min minus the
-    temperature at the switch). For heater-on runs this is the thermal lag of the heater
-    and sensor, which is what makes a plain on/off controller overshoot.
+    temperature kept rising *after* the run ended (max over the next ``lag_horizon`` minus
+    the temperature at the switch). For heater-on runs this is the thermal lag of the
+    heater and sensor, which is what makes a plain on/off controller overshoot.
     """
+    horizon = pd.Timedelta(lag_horizon)
     seg_id = (df["heater"] != df["heater"].shift()).cumsum()
     rows: list[dict[str, object]] = []
     times = df.index
@@ -43,7 +44,7 @@ def heater_segments(df: pd.DataFrame) -> pd.DataFrame:
         slope = np.nan
         if len(part) >= 3:
             slope = float(np.polyfit(minutes, part["temp"].to_numpy(), 1)[0])
-        after = df.loc[(times > end) & (times <= end + pd.Timedelta(minutes=2)), "temp"]
+        after = df.loc[(times > end) & (times <= end + horizon), "temp"]
         rise = float(after.max() - part["temp"].iloc[-1]) if len(after) else np.nan
         rows.append(
             {
@@ -208,3 +209,36 @@ def feature_table(df: pd.DataFrame) -> pd.DataFrame:
     feats["heater"] = df["heater"].astype(int)
     feats["min_since_switch"] = minutes_since_switch(df)
     return feats[FEATURE_COLUMNS].dropna()
+
+
+def absolute_humidity(temp_c: pd.Series | np.ndarray, rh_percent: pd.Series | np.ndarray):
+    """Water-vapour density in g/m³ from temperature (°C) and relative humidity (%).
+
+    Magnus formula for saturation vapour pressure (Sonntag 1990 constants, good to about
+    0.1 % between 0 and 50 °C), then the ideal-gas conversion:
+
+        e_s = 6.112 * exp(17.62 T / (243.12 + T))   [hPa]
+        AH  = 216.7 * (RH/100 * e_s) / (T + 273.15)  [g/m³]
+
+    Relative humidity falls when air is warmed at constant moisture, so RH alone says
+    nothing about whether a chamber is drying out; absolute humidity does.
+    """
+    t = np.asarray(temp_c, dtype=float)
+    rh = np.asarray(rh_percent, dtype=float)
+    e_s = 6.112 * np.exp(17.62 * t / (243.12 + t))
+    ah = 216.7 * (rh / 100.0 * e_s) / (t + 273.15)
+    if isinstance(temp_c, pd.Series):
+        return pd.Series(ah, index=temp_c.index, name="abs_hum")
+    return ah
+
+
+def humidity_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Per reading: inside/outside RH and absolute humidity, and their differences."""
+    out = pd.DataFrame(index=df.index)
+    out["rh_in"] = df["hum"]
+    out["rh_out"] = df["hum_out"]
+    out["ah_in"] = absolute_humidity(df["temp"], df["hum"])
+    out["ah_out"] = absolute_humidity(df["temp_out"], df["hum_out"])
+    out["ah_delta"] = out["ah_in"] - out["ah_out"]
+    out["rh_delta"] = out["rh_in"] - out["rh_out"]
+    return out

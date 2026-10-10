@@ -18,7 +18,7 @@ sys.path.insert(0, "../src")
 import pandas as pd
 import matplotlib.pyplot as plt
 from incubator.load import load_history, load_stress_log, summary
-from incubator import features as fe, anomaly as an, thermal_fit as tf
+from incubator import features as fe, anomaly as an, thermal_fit as tf, faults as fl
 pd.set_option("display.width", 160)"""
 
 EXPLORE = [
@@ -59,6 +59,19 @@ EXPLORE = [
         "code",
         "seg[seg['heater']].plot.scatter(x='duration_min', y='post_switch_rise', figsize=(6, 4));",
     ),
+    (
+        "md",
+        "## Humidity\nRelative humidity falls when air is warmed at constant moisture, so "
+        "look at absolute humidity (g/m³) to see whether the chamber dries out. It does "
+        "not: inside, vapour density *rises* with temperature while RH stays in a narrow band.",
+    ),
+    (
+        "code",
+        "h = fe.humidity_table(df)\n"
+        "h[['rh_in', 'rh_out', 'ah_in', 'ah_out']].plot(figsize=(11, 4), lw=1.2, "
+        "subplots=[('rh_in', 'rh_out'), ('ah_in', 'ah_out')], layout=(1, 2));",
+    ),
+    ("code", "h.resample('30min').mean().round(1)"),
     (
         "md",
         "## The heater test log (10 Oct)\nOnly ~2 h of 2-minute polls, but its heat-up "
@@ -103,8 +116,45 @@ ANOMALIES = [
     ),
     ("code", "ft.loc[z['flag']].head(20)"),
     ("code", "ft.loc[iso['flag']].head(20)"),
-    ("md", "## Thermal model fit (used by the control-simulation repo)"),
-    ("code", "fit = tf.fit_first_order(df)\nfit.as_dict()"),
+    ("md", "## Thermal model fits (used by the control-simulation repo)"),
+    ("code", "first = tf.fit_first_order(df)\nfirst.as_dict()"),
+    (
+        "md",
+        "The heater-lag (second-order) model needs no dead time and halves the error; "
+        "`figures/model_params.json` holds both parameter sets.",
+    ),
+    ("code", "second = tf.fit_second_order(df)\nsecond.as_dict()"),
+    ("code", "tf.compare_models(first, second)"),
+    (
+        "md",
+        "## Detector 3 · drift from the thermal model\nThe only detector that knows what the "
+        "heater is supposed to do. Threshold = 99.7th percentile of |drift| on this (clean) "
+        "day.",
+    ),
+    (
+        "code",
+        "drift = an.model_residual(df, second, threshold_c=0.22)\n"
+        "ax = drift['drift'].plot(figsize=(11, 3))\nax.axhline(0.22, color='C3'); "
+        "ax.axhline(-0.22, color='C3');\nan.flagged_episodes(drift['flag'])",
+    ),
+    (
+        "md",
+        "## Scoring on injected faults\nThe day has no known fault, so `faults.py` injects "
+        "six kinds (physical ones synthesised with the fitted model) at random positions "
+        "and scores every detector. `n_trials=5` here to keep it quick; the README table "
+        "uses 20.",
+    ),
+    (
+        "code",
+        "fault = fl.make_fault('heater_stuck_on', pd.Timestamp('2026-10-03 14:00', tz='UTC'))\n"
+        "faulted, labels = fl.inject(df, fault, second)\n"
+        "ax = faulted['temp'].plot(figsize=(11, 3), label='with fault')\n"
+        "df['temp'].plot(ax=ax, ls=':', label='real'); ax.legend();",
+    ),
+    (
+        "code",
+        "trials = fl.run_trials(df, second, n_trials=5, seed=0)\nfl.summarise(trials).round(2)",
+    ),
 ]
 
 

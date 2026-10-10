@@ -3,59 +3,59 @@
 ## Why it is built this way
 
 The repo answers one question with real data from your own incubator: *how does the chamber
-actually heat, cool and lag, and what does that mean for the controller?* Everything else is
-in service of that. The code is a small package instead of one notebook so that the README
-numbers, the figures and the tests all call the same functions; `figures/results.json` is
-written by the figure script and the README quotes only from it, so a professor who re-runs
-`make check` gets exactly the numbers in the README.
+actually heat, cool and lag, and what does that mean for the controller and for spotting
+faults?* The code is a small package instead of one notebook so that the README numbers, the
+figures and the tests all call the same functions; `figures/results.json` is written by the
+figure script and the README quotes only from it, so a professor who re-runs `make check`
+gets exactly the numbers in the README. CI runs the same command on every push.
 
-The thermal fit uses **simulation error, not slope regression**. The sensor reports
-0.01 °C steps every 15 s, so a per-reading slope is mostly quantisation noise; integrating the
-model over the 92-minute cool-down and comparing temperatures is what pins down the time
-constant. That decision is explained in the `thermal_fit.py` docstring and is a good thing to
-be able to say out loud.
+Two decisions are worth saying out loud. Both thermal fits use **simulation error, not
+slope regression**: the sensor reports 0.01 °C steps every 15 s, so per-reading slopes are
+mostly quantisation noise, while integrating over the 92-minute cool-down pins the time
+constant down. And the detectors are scored on **injected faults**, because the real day has
+none; the physical ones are synthesised with the fitted model and the README says so.
 
 ## File map
 
-- `src/incubator/load.py` – raw JSON/CSV to tidy, UTC-indexed frames. The schema is in the
-  module docstring. Note the UTC+3 handling.
-- `src/incubator/features.py` – `heater_segments` (runs of constant heater state),
-  `duty_cycle`, `heating_rates`, `setpoint_changes`, `time_to_target` (also overshoot),
-  `feature_table` (one row per reading for the detectors).
-- `src/incubator/anomaly.py` – `rolling_zscore` (per heater state), `isolation_forest`,
-  `compare`, `flagged_episodes`.
-- `src/incubator/thermal_fit.py` – `fit_first_order` (grid over dead time, least squares
-  on `a`, `b`), `simulate`, `FirstOrderFit.physical` for R and C when the heater power is known.
-- `scripts/make_figures.py` – the six PNGs and `results.json`; `CLEAN_WINDOWS` there is the
-  one hand-chosen input in the repo (the first heat-up/cool-down and the 38.8 °C step).
-- `scripts/build_notebooks.py` – generates the two notebooks so they never hold stale outputs.
-- `tests/` – the synthetic trace in `conftest.py` is the proof that the fit recovers known
-  parameters; the other tests pin the real-data facts (1 367 readings, four setpoints).
+- `src/incubator/load.py` – raw JSON/CSV to tidy, UTC-indexed frames (schema in the docstring).
+- `src/incubator/features.py` – `heater_segments`, `duty_cycle`, `time_to_target` (also
+  overshoot), `feature_table` for the detectors, `absolute_humidity` / `humidity_table`.
+- `src/incubator/thermal_fit.py` – `fit_first_order` (a, b, dead time) and
+  `fit_second_order` (a, τh, b: the heater-lag model), `compare_models` (RMSE, AIC).
+- `src/incubator/anomaly.py` – `rolling_zscore`, `isolation_forest`,
+  `ReferenceIsolationForest` (fit on a good day, apply to a new one), `model_residual`
+  (drift from the physics), `flagged_episodes`.
+- `src/incubator/faults.py` – `inject` (six fault kinds, labels), `run_trials`, `summarise`.
+- `scripts/make_figures.py` – nine PNGs, `results.json`, `model_params.json`.
+- `tests/` – the two synthetic generators in `conftest.py` prove each fit recovers known
+  parameters; the rest pin real-data facts and the fault-scoring mechanics.
 
 ## Three questions a professor will probably ask
 
-**"Your model has three parameters R, C, P. How did you get all three from temperature?"**
-I did not. Temperature alone identifies `a = P/C` and `b = 1/(RC)`; the time constant
-`RC = 1/b ≈ 100 min` and the full-power rise `PR = a/b ≈ 55 °C` are what the data gives.
-Separating them needs the heater's electrical power, which `physical()` takes as an input.
-Saying this plainly is better than quoting three numbers.
+**"Why a second-order model, and why those three parameters?"**
+Because the first-order fit needed a 3.5-minute dead time and still missed the peaks after
+switch-off by 0.4 °C. Letting the delivered heat lag the relay with a time constant τh ≈ 5 min
+removes the dead time and halves the error. I kept three parameters because that is what one
+temperature sensor can identify: the full four-parameter heater-body model was tried and its
+extra parameter came out indistinguishable from zero. There is also a mirror solution with
+the time constants swapped; I rejected it because the 92-minute cool-down measures the
+chamber loss directly.
 
-**"Why is the dead time 3–4 minutes? Air heats instantly."**
-The heater element and the enclosure store heat; after a 10-minute run the chamber kept
-rising for a quarter of an hour. A first-order model has no state for that, so the fit
-absorbs it as a delay. The honest fix is a second-order model (element + chamber), which is
-the first item in `TODO.md` and the reason the control-simulation repo exists.
+**"Your best detector uses the model you fitted on the same day. Isn't that circular?"**
+Partly, and the README says the threshold was calibrated on this day. The defence is that
+the model is three physical numbers, not a fit to the faults: the faults were injected
+afterwards and the detector was not tuned on them. The proper test is a second day of data,
+which is the first item in `TODO.md`.
 
-**"Which anomaly detector is better?"**
-Neither, because the day contains no known fault to score against. The z-score reacts to
-sudden slope changes (heater switches during big steps); the IsolationForest flags the
-unusual *state* (a cold chamber with a large setpoint error). They overlap on 3 readings.
-The next step is injected faults (stuck sensor, heater stuck on, door open) to get
-precision/recall; without that, any claim of "better" would be made up.
+**"What do the precision/recall numbers actually mean here?"**
+They are per reading, pooled over 20 random positions, with a chance floor next to them: a
+15-minute window on the clean day is "detected" by the z-score 40 % of the time anyway. The honest summary is that the
+drift detector separates relay and door faults from normal operation and the others do not;
+the sensor-stuck case is weak for everyone and needs a different signal.
 
 ## One thing you could extend
 
-Add humidity. `hum` drops from 81 % to 45 % as the chamber warms, which is the expected
-relative-humidity effect of heating at constant moisture. Fitting absolute humidity (from
-`temp` and `hum`) would show whether the chamber is actually drying out, which matters for
-queen cells and would be a genuinely new result from your own data.
+Turn `a` and `b` into real R, C and P: measure the heater's electrical power once (a plug
+meter will do), call `FirstOrderFit.physical(heater_power_w)`, and you have the chamber's
+heat capacity and insulation in physical units, which is a number nobody else has for this
+device and a direct input to the control-simulation repo.
