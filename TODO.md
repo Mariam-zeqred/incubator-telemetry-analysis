@@ -19,3 +19,11 @@ figures. What is left is data-bound or belongs to other repos:
    from the reference day; expected to help little, and it is documented as a finding now.
 5. `CLEAN_WINDOWS` in `scripts/make_figures.py` stays hand-typed on purpose (documented in
    the WALKTHROUGH as the one hand-chosen input); fine to leave.
+
+## Open
+- The claim in `thermal_fit.py`'s docstring and WALKTHROUGH question 1 that "a four-parameter
+  heater-body model was tried and its extra parameter came out indistinguishable from zero"
+  has no code or result in the repo (QC 2026-10-11). Either add the trial as a small function
+  plus a line in `results.json`, or drop the sentence before Mariam uses it in an interview.
+- `data/heater_stress_log_2026-10-10.csv` is 33 rows (2 h), not the 72 h log PLAN.md
+  describes; README and TODO item 1 already say so. Needs the real export from Mariam.
