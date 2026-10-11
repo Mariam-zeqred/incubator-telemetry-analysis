@@ -12,6 +12,9 @@ dist/
 
 # Secrets and local config
 .env
+.env.*
+!.env.example
+*.log
 *.pem
 *.key
 secrets*.h
