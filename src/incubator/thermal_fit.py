@@ -43,7 +43,8 @@ switch-off and starts late after switch-on: that is what the first-order fit had
 a dead time. It is the limit of a two-mass model (heater body + chamber) in which the
 body's temperature is not observed; the general four-parameter two-mass model was tried on
 this data and its extra parameter is not determined (it comes out indistinguishable from
-zero), so the three-parameter form is the one that is actually supported.
+zero), so the three-parameter form is the one that is actually supported. That trial is not
+kept in the repo (TODO.md).
 
 Identifiability and the two branches: from one temperature the relay-to-temperature response
 fixes the gain ``a / tau_h``, the sum ``1/tau_h + b`` and the product ``b / tau_h``, which

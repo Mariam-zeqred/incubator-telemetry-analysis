@@ -80,7 +80,7 @@ Second order: the heat reaching the chamber, `E`, lags the relay with its own ti
 | Fit (whole trace, 1 367 readings) | a (°C/min) | b (1/min) | τ = 1/b (min) | lag | RMSE open-loop |
 |---|---|---|---|---|---|
 | First order + dead time | 0.554 ± 0.002 | 0.0101 ± 0.0001 | 99 ± 1 | 3.5 min dead time | 0.29 °C |
-| Second order (heater lag) | 0.591 ± 0.001 | 0.0111 ± 0.0000 | 90 ± 0.3 | τh = 4.9 ± 0.1 min | **0.16 °C** |
+| Second order (heater lag) | 0.591 ± 0.002 | 0.0111 (SE < 0.0001) | 90 ± 0.3 | τh = 4.9 ± 0.1 min | **0.16 °C** |
 
 The lag model needs no dead time (a grid over 0–1 min of dead time picks 0), halves the error
 and reproduces the rise after switch-off: measured +3.37 / +1.43 / +1.85 °C after the three
@@ -119,7 +119,8 @@ flag inside the fault window plus a 5-min settle margin; the *null* column is ho
 same detector would have "detected" that window on the clean day, i.e. the chance floor.
 Precision/recall are per reading, pooled over trials; false alarms are episodes per trial
 outside the fault. The two IsolationForest variants (refitted per trace, and fitted on the
-clean day) sit at their chance floor on every fault and are omitted from the table; the
+clean day) sit at or within a few trials of their chance floor on every fault (best case:
+30 % detected against a 15 % floor on the stuck sensor) and are omitted from the table; the
 full table is in `results.json`.
 
 | Fault | z-score: detected / null · prec · rec · false alarms | Model drift: detected / null · prec · rec · false alarms |
@@ -135,7 +136,7 @@ What this says: the z-score "detects" almost everything because it fires 5–6 f
 per day anyway (its null rate for a 15-min window is 40 %); its reading-level precision is
 below 0.25 everywhere. The model-drift detector is the only one that separates the physical
 faults from normal operation (door open: precision 0.93, recall 0.92; relay stuck on: 100 %
-detected against a 5 % floor) with about one false episode per day. It is weak on a stuck
+detected against a 5 % floor) with one to two false episodes per day. It is weak on a stuck
 sensor during steady state, where the model also predicts "no change", and it catches a
 dropout only because its one-step prediction across a 10-minute hole is poor, which is a
 side effect: a watchdog on the sampling interval is the right tool for that. The
@@ -170,7 +171,7 @@ raised throughout the run. Two hours is too short to say anything about enduranc
   it with no dead time; a first-order model needs a 3.5-min dead time and still misses.
 - Once near the setpoint the firmware's short pulses held a 0.2 °C band, slightly below target.
 - A detector that knows the thermal model finds relay and door faults with precision above
-  0.47 and about one false alarm per day; slope statistics and IsolationForest do not.
+  0.47 and one to two false alarms per day; slope statistics and IsolationForest do not.
 - Vapour density inside rises with temperature; the chamber does not dry out as it warms.
 
 ## Limitations

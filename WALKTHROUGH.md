@@ -9,7 +9,7 @@ figures and the tests all call the same functions; `figures/results.json` is wri
 figure script and the README quotes only from it, so a professor who re-runs `make check`
 gets exactly the numbers in the README. CI runs the same command on every push.
 
-Two decisions are worth saying out loud. Both thermal fits use **simulation error, not
+Two decisions matter. Both thermal fits use **simulation error, not
 slope regression**: the sensor reports 0.01 °C steps every 15 s, so per-reading slopes are
 mostly quantisation noise, while integrating over the 92-minute cool-down pins the time
 constant down. And the detectors are scored on **injected faults**, because the real day has
@@ -36,8 +36,8 @@ none; the physical ones are synthesised with the fitted model and the README say
 Because the first-order fit needed a 3.5-minute dead time and still missed the peaks after
 switch-off by 0.4 °C. Letting the delivered heat lag the relay with a time constant τh ≈ 5 min
 removes the dead time and halves the error. I kept three parameters because that is what one
-temperature sensor can identify: the full four-parameter heater-body model was tried and its
-extra parameter came out indistinguishable from zero. There is also a mirror solution with
+temperature sensor can identify: a four-parameter heater-body model was tried (not kept in
+the repo, see `TODO.md`) and its extra parameter came out indistinguishable from zero. There is also a mirror solution with
 the time constants swapped; I rejected it because the 92-minute cool-down measures the
 chamber loss directly.
 
@@ -49,7 +49,7 @@ which is the first item in `TODO.md`.
 
 **"What do the precision/recall numbers actually mean here?"**
 They are per reading, pooled over 20 random positions, with a chance floor next to them: a
-15-minute window on the clean day is "detected" by the z-score 40 % of the time anyway. The honest summary is that the
+15-minute window on the clean day is "detected" by the z-score 40 % of the time. The honest summary is that the
 drift detector separates relay and door faults from normal operation and the others do not;
 the sensor-stuck case is weak for everyone and needs a different signal.
 
