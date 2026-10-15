@@ -171,8 +171,7 @@ short for any endurance claim.
 
 ## Findings the data supports
 - Full-power heating from ambient is about 0.35 °C/min on both days (0.59 °C/min once the
-  heater is warmed through, with a 5-minute lag); cooling near 4 °C above ambient is about
-  0.035 °C/min, chamber time constant 1.5 h.
+  heater is warmed through, 5-min lag); cooling 4 °C above ambient is 0.035 °C/min, τ = 1.5 h.
 - The dominant control problem is lag: up to 3.4 °C of post-switch rise after a long heater
   run, which produced a 1.4 °C overshoot on the first approach. A heater-lag model explains
   it with no dead time; a first-order model needs a 3.5-min dead time and still misses. The
