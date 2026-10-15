@@ -25,7 +25,7 @@ data/*.json, *.csv ──► load.py ──► tidy UTC frame ──► features
 
 | File | What it is |
 |---|---|
-| `data/hive-1C5A00_history_2026-10-03.json` | 1 367 readings at 15 s, 3 Oct 2026 10:02–15:45 UTC: chamber and ambient temperature/humidity, setpoint, heater relay, door. Includes a hands-on session where the setpoint was stepped 32 → 34.5 → 38.8 → 30 °C. |
+| `data/hive-1C5A00_history_2026-10-03.json` | 1 367 readings at 15 s, 3 Oct 2026 10:02–15:45 UTC: chamber and ambient temperature/humidity, setpoint, heater relay, door. Includes a hands-on session where the setpoint was stepped 32 → 34.5 → 38.8 → 30 °C. `ts` is epoch UTC; `iso` (and the CSV's `time_local`) is Egypt local time, UTC+3. |
 | `data/heater_stress_log_2026-10-10.csv` | A bench script's 2-minute polls during a heater test on 10 Oct 2026. **Only 33 rows (2 h) are in the repo**, not the full endurance run; it is used for one cross-check and the device-state columns (`runState`, `crashCount`, `reset`, `action`). |
 
 ## Run it
@@ -170,9 +170,9 @@ heat-up to 38.75 °C and a scripted cool-down (setpoint lowered 0.1–0.2 °C ev
 short for any endurance claim.
 
 ## Findings the data supports
-- Full-power heating from ambient is about 0.35 °C/min on both days; the fitted full-power
-  rate once the heater is warmed through is 0.59 °C/min, reached with a 5-minute lag.
-- Cooling near 4 °C above ambient is about 0.035 °C/min; the chamber time constant is 1.5 h.
+- Full-power heating from ambient is about 0.35 °C/min on both days (0.59 °C/min once the
+  heater is warmed through, with a 5-minute lag); cooling near 4 °C above ambient is about
+  0.035 °C/min, chamber time constant 1.5 h.
 - The dominant control problem is lag: up to 3.4 °C of post-switch rise after a long heater
   run, which produced a 1.4 °C overshoot on the first approach. A heater-lag model explains
   it with no dead time; a first-order model needs a 3.5-min dead time and still misses. The
