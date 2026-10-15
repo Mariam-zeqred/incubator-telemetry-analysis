@@ -33,3 +33,16 @@ def test_compare_and_episodes():
     ep = a.flagged_episodes(x, max_gap="1min")
     assert ep["readings"].tolist() == [2, 1]
     assert a.flagged_episodes(x & False).empty
+
+
+def test_interval_watchdog_flags_only_the_reading_after_a_gap(history):
+    out = a.interval_watchdog(history)
+    assert np.isnan(out["gap_s"].iloc[0]) and not bool(out["flag"].iloc[0])
+    assert int(out["flag"].sum()) == 1  # the clean day has one real 74 s gap
+    assert float(out.loc[out["flag"], "gap_s"].iloc[0]) == 74.0
+    assert int(a.interval_watchdog(history, max_gap_s=90).sum()["flag"]) == 0
+    real_gap = out.index[out["flag"].to_numpy()][0]
+    holed = history.drop(history.index[500:540])
+    out = a.interval_watchdog(holed)
+    assert bool(out["flag"].iloc[500]) and float(out["gap_s"].iloc[500]) >= 41 * 15.0
+    assert int(out["flag"].sum()) == 1 + int(real_gap in holed.index)

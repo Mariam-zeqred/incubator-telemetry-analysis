@@ -127,6 +127,15 @@ ANOMALIES = [
     ("code", "tf.compare_models(first, second)"),
     (
         "md",
+        "Why stop at three parameters? The general two-mass model adds `phi`, the heater "
+        "body's share of the heat capacity. On this day it is not determined: the free fit "
+        "runs to the mirror branch and a profile over `phi` is a flat ridge that only trades "
+        "`phi` against `b` (figure 10).",
+    ),
+    ("code", "tf.fit_two_mass(df).as_dict()"),
+    ("code", "pd.DataFrame(tf.two_mass_profile(df, phis=(-0.2, 0.0, 0.2, 0.4, 0.6)))"),
+    (
+        "md",
         "## Detector 3 · drift from the thermal model\nThe only detector that knows what the "
         "heater is supposed to do. Threshold = 99.7th percentile of |drift| on this (clean) "
         "day.",
@@ -137,6 +146,12 @@ ANOMALIES = [
         "ax = drift['drift'].plot(figsize=(11, 3))\nax.axhline(0.22, color='C3'); "
         "ax.axhline(-0.22, color='C3');\nan.flagged_episodes(drift['flag'])",
     ),
+    (
+        "md",
+        "## Detector 4 · sampling-interval watchdog\nNot a statistic: it flags the first "
+        "reading after a gap longer than 60 s. The clean day has exactly one such gap.",
+    ),
+    ("code", "gaps = an.interval_watchdog(df)\ngaps.loc[gaps['flag']]"),
     (
         "md",
         "## Scoring on injected faults\nThe day has no known fault, so `faults.py` injects "

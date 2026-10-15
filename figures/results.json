@@ -255,9 +255,166 @@
         "measured_minutes_to_peak": 16.0,
         "second_order_minutes_to_peak": 16.5
       }
-    ]
+    ],
+    "two_mass_trial": {
+      "model": "dE/dt = (a*u - E)/tau_h + (phi*b/tau_h)*(T - T_out); dT/dt = E - b*(T - T_out); phi = C_h/(C + C_h); phi = 0 is the heater-lag model",
+      "free_fit": {
+        "note": "b ends on its upper bound (0.1 /min): the slow-heater/fast-chamber mirror solution re-entered through phi",
+        "a_c_per_min": 0.9836,
+        "a_se": 0.0639,
+        "tau_h_min": 8.2914,
+        "tau_h_se": 0.5464,
+        "b_per_min": 0.1,
+        "b_se": 0.0087,
+        "phi": 0.8154,
+        "phi_se": 0.0044,
+        "b_fixed": false,
+        "n": 1367,
+        "rmse_c": 0.1426,
+        "r2": 0.9982,
+        "tau_min": 10.0,
+        "phi_is_distinguishable_from_zero": true
+      },
+      "free_vs_second_order": {
+        "n": 1367,
+        "second_order_rmse_c": 0.1608,
+        "two_mass_rmse_c": 0.1426,
+        "rmse_ratio": 0.8867,
+        "second_order_aic": -4990.4803,
+        "two_mass_aic": -5317.1082,
+        "delta_aic": -326.6278
+      },
+      "cooldown_only_b": {
+        "slope_c_per_min": -0.0387,
+        "mean_excess_c": 4.1826,
+        "b_per_min": 0.0093,
+        "tau_min": 107.9626,
+        "n": 330
+      },
+      "b_pinned_to_cooldown": {
+        "a_c_per_min": 0.586,
+        "a_se": 0.0013,
+        "tau_h_min": 4.8741,
+        "tau_h_se": 0.0497,
+        "b_per_min": 0.0093,
+        "b_se": 0.0,
+        "phi": -0.1846,
+        "phi_se": 0.004,
+        "b_fixed": true,
+        "n": 1367,
+        "rmse_c": 0.1613,
+        "r2": 0.9976,
+        "tau_min": 107.9626,
+        "phi_is_distinguishable_from_zero": true
+      },
+      "profile": [
+        {
+          "phi": -0.3,
+          "a_c_per_min": 0.5839,
+          "tau_h_min": 4.8565,
+          "b_per_min": 0.0084,
+          "tau_min": 118.9021,
+          "rmse_c": 0.1615
+        },
+        {
+          "phi": -0.2,
+          "a_c_per_min": 0.5858,
+          "tau_h_min": 4.8731,
+          "b_per_min": 0.0091,
+          "tau_min": 109.3989,
+          "rmse_c": 0.1613
+        },
+        {
+          "phi": -0.1,
+          "a_c_per_min": 0.5881,
+          "tau_h_min": 4.8931,
+          "b_per_min": 0.01,
+          "tau_min": 99.8926,
+          "rmse_c": 0.1611
+        },
+        {
+          "phi": 0.0,
+          "a_c_per_min": 0.5908,
+          "tau_h_min": 4.9175,
+          "b_per_min": 0.0111,
+          "tau_min": 90.3823,
+          "rmse_c": 0.1608
+        },
+        {
+          "phi": 0.1,
+          "a_c_per_min": 0.5943,
+          "tau_h_min": 4.948,
+          "b_per_min": 0.0124,
+          "tau_min": 80.8664,
+          "rmse_c": 0.1605
+        },
+        {
+          "phi": 0.2,
+          "a_c_per_min": 0.5987,
+          "tau_h_min": 4.9871,
+          "b_per_min": 0.014,
+          "tau_min": 71.3426,
+          "rmse_c": 0.1601
+        },
+        {
+          "phi": 0.3,
+          "a_c_per_min": 0.6047,
+          "tau_h_min": 5.0395,
+          "b_per_min": 0.0162,
+          "tau_min": 61.8067,
+          "rmse_c": 0.1595
+        },
+        {
+          "phi": 0.4,
+          "a_c_per_min": 0.613,
+          "tau_h_min": 5.1128,
+          "b_per_min": 0.0191,
+          "tau_min": 52.2516,
+          "rmse_c": 0.1588
+        },
+        {
+          "phi": 0.5,
+          "a_c_per_min": 0.6255,
+          "tau_h_min": 5.2235,
+          "b_per_min": 0.0234,
+          "tau_min": 42.6624,
+          "rmse_c": 0.1577
+        },
+        {
+          "phi": 0.6,
+          "a_c_per_min": 0.6467,
+          "tau_h_min": 5.4103,
+          "b_per_min": 0.0303,
+          "tau_min": 33.0033,
+          "rmse_c": 0.1561
+        },
+        {
+          "phi": 0.7,
+          "a_c_per_min": 0.6909,
+          "tau_h_min": 5.8013,
+          "b_per_min": 0.0432,
+          "tau_min": 23.1567,
+          "rmse_c": 0.1531
+        },
+        {
+          "phi": 0.8,
+          "a_c_per_min": 0.8842,
+          "tau_h_min": 7.5576,
+          "b_per_min": 0.0831,
+          "tau_min": 12.0353,
+          "rmse_c": 0.1455
+        }
+      ],
+      "rmse_change_phi_minus0_2_to_0_4_pct": 1.58
+    }
   },
   "fault_scoring": {
+    "clean_day_gaps_over_60s": [
+      {
+        "time_utc": "12:15:25",
+        "gap_s": 74.0
+      }
+    ],
     "trials_per_kind": 20,
     "fault_defaults": {
       "stuck_sensor": {
@@ -290,7 +447,8 @@
       "zscore": 17,
       "isoforest": 41,
       "isoforest_ref": 41,
-      "model_drift": 5
+      "model_drift": 5,
+      "interval": 1
     },
     "scores": [
       {
@@ -330,6 +488,15 @@
         "fp_episodes_per_trial": 1.0
       },
       {
+        "kind": "stuck_sensor",
+        "detector": "interval",
+        "detection_rate": 0.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.0
+      },
+      {
         "kind": "spike",
         "detector": "zscore",
         "detection_rate": 1.0,
@@ -364,6 +531,15 @@
         "precision": 0.16,
         "recall": 1.0,
         "fp_episodes_per_trial": 1.25
+      },
+      {
+        "kind": "spike",
+        "detector": "interval",
+        "detection_rate": 0.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.0
       },
       {
         "kind": "heater_stuck_on",
@@ -402,6 +578,15 @@
         "fp_episodes_per_trial": 1.8
       },
       {
+        "kind": "heater_stuck_on",
+        "detector": "interval",
+        "detection_rate": 0.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.0
+      },
+      {
         "kind": "heater_stuck_off",
         "detector": "zscore",
         "detection_rate": 0.65,
@@ -436,6 +621,15 @@
         "precision": 0.78,
         "recall": 0.53,
         "fp_episodes_per_trial": 1.4
+      },
+      {
+        "kind": "heater_stuck_off",
+        "detector": "interval",
+        "detection_rate": 0.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.0
       },
       {
         "kind": "door_open",
@@ -474,6 +668,15 @@
         "fp_episodes_per_trial": 1.0
       },
       {
+        "kind": "door_open",
+        "detector": "interval",
+        "detection_rate": 0.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "fp_episodes_per_trial": 1.0
+      },
+      {
         "kind": "dropout",
         "detector": "zscore",
         "detection_rate": 0.25,
@@ -508,6 +711,15 @@
         "precision": 0.04,
         "recall": 0.8,
         "fp_episodes_per_trial": 1.65
+      },
+      {
+        "kind": "dropout",
+        "detector": "interval",
+        "detection_rate": 1.0,
+        "null_detection_rate": 0.0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "fp_episodes_per_trial": 1.0
       }
     ]
   },

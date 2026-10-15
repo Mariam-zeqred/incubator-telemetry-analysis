@@ -14,7 +14,8 @@ data/*.json, *.csv ──► load.py ──► tidy UTC frame ──► features
                                         │                               overshoot, absolute humidity
                                         ├──► thermal_fit.py ──► 1st-order (a, b, dead time)
                                         │                       2nd-order (a, τh, b)  ──► model_params.json
-                                        ├──► anomaly.py ──► z-score · IsolationForest · model drift
+                                        │                       4-param two-mass: tried, not identifiable
+                                        ├──► anomaly.py ──► z-score · IsolationForest · model drift · gaps
                                         └──► faults.py ──► inject 6 fault kinds, score the detectors
                                                         │
                        scripts/make_figures.py ◄────────┘ ──► figures/*.png + results.json
@@ -27,18 +28,14 @@ data/*.json, *.csv ──► load.py ──► tidy UTC frame ──► features
 | `data/hive-1C5A00_history_2026-10-03.json` | 1 367 readings at 15 s, 3 Oct 2026 10:02–15:45 UTC: chamber and ambient temperature/humidity, setpoint, heater relay, door. Includes a hands-on session where the setpoint was stepped 32 → 34.5 → 38.8 → 30 °C. |
 | `data/heater_stress_log_2026-10-10.csv` | A bench script's 2-minute polls during a heater test on 10 Oct 2026. **Only 33 rows (2 h) are in the repo**, not the full endurance run; it is used for one cross-check and the device-state columns (`runState`, `crashCount`, `reset`, `action`). |
 
-Timestamps: `ts` is epoch UTC; the device's `iso` and the CSV's `time_local` are Egypt local
-time (UTC+3), which the loader converts.
-
 ## Run it
 
 ```bash
 git clone https://github.com/Mariam-zeqred/incubator-telemetry-analysis && cd incubator-telemetry-analysis
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-make check          # ruff + pytest (29 tests) + regenerate figures/ and results.json (~90 s)
+make check          # ruff + pytest (35 tests) + regenerate figures/ and results.json (~90 s)
 make notebooks      # rebuild the two exploration notebooks (outputs cleared)
-jupyter lab notebooks/01_explore.ipynb
 ```
 
 ## Results
@@ -48,8 +45,8 @@ jupyter lab notebooks/01_explore.ipynb
 ![duty cycle](figures/02_duty_cycle.png)
 
 The heater was on 19 % of the time overall. In the steady stretch at 38.8 °C (13:35–15:39 UTC)
-it fired 19 short pulses (about one per 6.5 min, duty cycle 19 %) and held the chamber at
-38.65 °C mean, 38.57–38.77 °C range, 10.4 °C above ambient.
+it fired 19 short pulses (one per 6.5 min, duty 19 %) and held 38.65 °C mean, 38.57–38.77 °C
+range, 10.4 °C above ambient.
 
 ### Heat-up, cool-down and thermal lag
 ![rates](figures/03_rates.png)
@@ -64,9 +61,9 @@ it fired 19 short pulses (about one per 6.5 min, duty cycle 19 %) and held the c
 | Time to target / overshoot: 34.5 °C | 9.0 min / 0.00 °C |
 | Time to target / overshoot: 38.8 °C | 24.8 min / −0.03 °C |
 
-The lag is the main story of this data set: once the heater has run for several minutes the
-chamber keeps warming for a quarter of an hour. The firmware's long first run from cold
-produced the 1.4 °C overshoot; the later steps, driven by short pulses, did not overshoot.
+The lag is the main story: after several minutes of heating the chamber keeps warming for a
+quarter of an hour. The long first run from cold produced the 1.4 °C overshoot; the later
+steps, driven by short pulses, did not.
 
 ### Thermal models: first order with a dead time, then a heater-lag model
 ![model fit](figures/05_model_fit.png)
@@ -74,8 +71,8 @@ produced the 1.4 °C overshoot; the later steps, driven by short pulses, did not
 
 Both are fitted by simulating the model and minimising the temperature error (not by
 regressing on noisy 15-second differences). First order: `dT/dt = a·u(t − d) − b·(T − T_out)`.
-Second order: the heat reaching the chamber, `E`, lags the relay with its own time constant,
-`dE/dt = (a·u − E)/τh`, `dT/dt = E − b·(T − T_out)`.
+Second order: the heat reaching the chamber, `E`, lags the relay: `dE/dt = (a·u − E)/τh`,
+`dT/dt = E − b·(T − T_out)`.
 
 | Fit (whole trace, 1 367 readings) | a (°C/min) | b (1/min) | τ = 1/b (min) | lag | RMSE open-loop |
 |---|---|---|---|---|---|
@@ -97,31 +94,42 @@ heater-off stretch the chamber lost 0.035 °C/min at ~4 °C above ambient, i.e. 
 0.2. Only `a`, `τh` and `b` are identifiable from temperatures; `R`, `C` and `P` separately
 need the heater's electrical power (`FirstOrderFit.physical(heater_power_w)` does that).
 
+![two-mass profile](figures/10_two_mass_profile.png)
+
+**Why not a fourth parameter?** The general two-mass model (`fit_two_mass`) adds φ, the
+heater body's share of the heat capacity; φ = 0 is the lag model. On this day φ is not
+identifiable: holding it anywhere from −0.2 to 0.4 and refitting the rest changes the RMSE by
+1.6 % while τ = 1/b slides from 109 to 52 min to compensate; left free, the fit runs to the b
+bound, i.e. into the mirror solution (φ = 0.82, RMSE 0.143 °C); with b pinned to the
+model-free cool-down value (0.0093 /min) φ lands at −0.18, outside its physical range. Three
+parameters are kept because the fourth cannot be determined from one sensor and 1 °C of
+ambient variation, not because it was measured to be zero.
+
 ### Anomaly detectors on the real day
 ![anomalies](figures/04_anomalies.png)
 
-There is no labelled fault in this day. The rolling z-score of the temperature slope (per
-heater state, window 40, |z| > 3) flags 17 readings in 6 short episodes, all at heater
-switches during the big setpoint steps. The IsolationForest (3 % contamination) flags 41
-readings, 38 of them the initial warm-up from a cold chamber. A third detector added in
-session 2, the *drift* of the measured temperature from what the lag model predicts over the
-last 5 min (threshold 0.22 °C = the 99.7th percentile of this day), flags 5 readings.
+There is no labelled fault in this day. The rolling z-score of the temperature slope (per heater
+state, window 40, |z| > 3) flags 17 readings in 6 short episodes, all at heater switches during the
+big setpoint steps. The IsolationForest (3 % contamination) flags 41 readings, 38 of them the
+initial warm-up from cold. The *drift* of the measured temperature from what the lag model predicts
+over the last 5 min (threshold 0.22 °C = this day's 99.7th percentile) flags 5. The
+sampling-interval watchdog (gap > 60 s) flags one: a real 74 s gap at 12:15 UTC.
 
 ### Scored on injected faults
 ![faults](figures/08_faults.png)
 
-To get numbers, `faults.py` injects six fault kinds at 20 random positions each into the
-real trace and scores every detector. Sensor faults (stuck 15 min, a +1.5 °C spike, a 10-min
-dropout) edit the readings; physical faults (relay stuck on 10 min, stuck off 20 min, door
-open 15 min = loss ×4) are **synthesised with the fitted lag model** and added to the measured
-temperature, which is the honest limit of what one real day allows. "Detected" means any
-flag inside the fault window plus a 5-min settle margin; the *null* column is how often the
-same detector would have "detected" that window on the clean day, i.e. the chance floor.
-Precision/recall are per reading, pooled over trials; false alarms are episodes per trial
-outside the fault. The two IsolationForest variants (refitted per trace, and fitted on the
-clean day) sit at or within a few trials of their chance floor on every fault (best case:
-30 % detected against a 15 % floor on the stuck sensor) and are omitted from the table; the
-full table is in `results.json`.
+To get numbers, `faults.py` injects six fault kinds at 20 random positions each into the real trace
+and scores every detector. Sensor faults (stuck 15 min, a +1.5 °C spike, a 10-min dropout) edit the
+readings; physical faults (relay stuck on 10 min, stuck off 20 min, door open 15 min = loss ×4) are
+**synthesised with the fitted lag model** and added to the measured temperature, the honest limit
+of what one real day allows. "Detected" means any flag inside the fault window plus a 5-min settle
+margin; *null* is how often the same detector "detected" that window on the clean day, i.e. the
+chance floor. Precision/recall are per reading, pooled over trials; false alarms are episodes per
+trial outside the fault. Omitted from the table (full table in `results.json`): the two
+IsolationForest variants (refitted per trace, and fitted on the clean day), which sit at or within
+a few trials of their chance floor on every fault (best case 30 % detected against a 15 % floor,
+stuck sensor), and the interval watchdog, which by construction detects 100 % of dropouts at a 0 %
+floor and nothing else (its precision of 0.5 is the clean day's own 74 s gap counted against it).
 
 | Fault | z-score: detected / null · prec · rec · false alarms | Model drift: detected / null · prec · rec · false alarms |
 |---|---|---|
@@ -139,28 +147,27 @@ faults from normal operation (door open: precision 0.93, recall 0.92; relay stuc
 detected against a 5 % floor) with one to two false episodes per day. It is weak on a stuck
 sensor during steady state, where the model also predicts "no change", and it catches a
 dropout only because its one-step prediction across a 10-minute hole is poor, which is a
-side effect: a watchdog on the sampling interval is the right tool for that. The
-IsolationForests spend their 3 % budget on the cold start, the most unusual *normal* state.
+side effect; the interval watchdog is the right tool for that. The IsolationForests spend
+their 3 % budget on the cold start, the most unusual *normal* state.
 
 ### Humidity
 ![humidity](figures/09_humidity.png)
 
 Relative humidity inside stayed at 67–75 % after the first warm-up while the chamber went
-from 30 to 38.8 °C; outside it was 44–54 %. Converted to absolute humidity (Magnus formula,
-`features.absolute_humidity`), the vapour density inside rose from 21.8 g/m³ in the first
-10 min to 31.9 g/m³ in the last 10 min (correlation with chamber temperature 0.98) while
-outside it stayed at 12.8 ± 0.4 g/m³. At 38.8 °C the chamber held 2.6× the ambient vapour
-density. So the chamber is not drying out as it warms: something inside it releases water
-vapour as the temperature rises, fast enough to hold RH nearly constant. This data cannot say
-what (a water reservoir, wax, wood); that is a question for the hardware.
+from 30 to 38.8 °C; outside it was 44–54 %. As absolute humidity (Magnus formula,
+`features.absolute_humidity`) the vapour density inside rose from 21.8 g/m³ in the first
+10 min to 31.9 g/m³ in the last 10 min (correlation with chamber temperature 0.98), outside
+it stayed at 12.8 ± 0.4 g/m³. So the chamber is not drying out as it warms: something inside
+releases water vapour fast enough to hold RH nearly constant. This data cannot say what (a
+water reservoir, wax, wood); that is a question for the hardware.
 
 ### Heater test log (10 Oct)
 ![stress log](figures/06_stress_log.png)
 
-The device was `PAUSED` on firmware 1.1.5 when the script started, was auto-resumed, then
-ran one heat-up to 38.75 °C and a scripted cool-down with the setpoint lowered 0.1–0.2 °C
-every 2 min. `crashCount` went 6 → 7 with reset reason "other watchdog" and alarm `W01`
-raised throughout the run. Two hours is too short to say anything about endurance.
+The device was `PAUSED` on firmware 1.1.5 when the script started, was auto-resumed, then ran one
+heat-up to 38.75 °C and a scripted cool-down (setpoint lowered 0.1–0.2 °C every 2 min).
+`crashCount` went 6 → 7 with reset reason "other watchdog" and alarm `W01` raised throughout. Too
+short for any endurance claim.
 
 ## Findings the data supports
 - Full-power heating from ambient is about 0.35 °C/min on both days; the fitted full-power
@@ -168,32 +175,27 @@ raised throughout the run. Two hours is too short to say anything about enduranc
 - Cooling near 4 °C above ambient is about 0.035 °C/min; the chamber time constant is 1.5 h.
 - The dominant control problem is lag: up to 3.4 °C of post-switch rise after a long heater
   run, which produced a 1.4 °C overshoot on the first approach. A heater-lag model explains
-  it with no dead time; a first-order model needs a 3.5-min dead time and still misses.
+  it with no dead time; a first-order model needs a 3.5-min dead time and still misses. The
+  heater body's share of the heat capacity is not identifiable from this day (figure 10).
 - Once near the setpoint the firmware's short pulses held a 0.2 °C band, slightly below target.
 - A detector that knows the thermal model finds relay and door faults with precision above
   0.47 and one to two false alarms per day; slope statistics and IsolationForest do not.
 - Vapour density inside rises with temperature; the chamber does not dry out as it warms.
 
 ## Limitations
-One device, one day of history plus two hours of test log; one ambient (27–28 °C); no door
-openings (the door was shut throughout); no *real* faults, so the detector scores rest on
-injected ones whose physical kinds are model-synthesised. The models are lumped and linear;
-the humidity reading is one sensor with no calibration check.
+One device, one day of history plus two hours of test log; one ambient (27–28 °C); the door
+shut throughout; no *real* faults, so the detector scores rest on injected ones whose physical
+kinds are model-synthesised. The models are lumped and linear; the humidity reading is one
+sensor with no calibration check.
 
 ## Relation to the published work
 The incubator and its control approach are described in "Design and Development of a Smart
 Incubator for Bee Queens Based on IoT Technology", *Journal of Computer Science and
 Engineering Research* 3(1), June 2026, DOI
 [10.64820/AEPJCSER.31.13.22.62026](https://doi.org/10.64820/AEPJCSER.31.13.22.62026). This
-repo adds a quantitative look at the production device's heating behaviour that the paper
-did not include. `figures/model_params.json` is the input for a companion control-simulation
-repo (planned) that compares on/off, PID and predictive control on these models.
+repo adds the quantitative look at the device's heating behaviour that the paper did not
+include; `figures/model_params.json` feeds the companion control-simulation repo.
 
 ## Next steps
-See `TODO.md`: more days of data, the real heater power to turn `a` and `b` into R, C and P,
-and a sampling-interval watchdog to go with the drift detector.
-
-## Layout
-`src/incubator/` package (load, features, anomaly, thermal_fit, faults) · `tests/` pytest ·
-`scripts/` figure and notebook builders · `notebooks/` exploration · `figures/` outputs ·
-`data/` raw exports · `.github/workflows/check.yml` CI · MIT licence.
+See `TODO.md`: more days of data and the real heater power to turn `a` and `b` into R, C
+and P. The file map is in `WALKTHROUGH.md`.

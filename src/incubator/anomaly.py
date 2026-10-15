@@ -23,6 +23,11 @@ Detector 3 -- :func:`model_residual`, added in session 2: drift of the measured
     temperature away from what the fitted heater-lag model predicts from the logged relay
     states. The only one of the three that knows what the heater *should* be doing.
 
+Detector 4 -- :func:`interval_watchdog`, added in session 3: not a statistic at all, just
+    "did the gap before this reading exceed ``max_gap_s``?". It exists so that a dropout is
+    caught on purpose rather than as a side effect of the drift detector's poor one-step
+    prediction across a hole.
+
 Scoring against injected faults lives in :mod:`incubator.faults`.
 """
 
@@ -217,4 +222,20 @@ def model_residual(
     drift = pd.Series(residual, index=df.index).rolling(window).sum()
     out = pd.DataFrame({"drift": drift})
     out["flag"] = out["drift"].abs() > threshold_c
+    return out
+
+
+def interval_watchdog(df: pd.DataFrame, max_gap_s: float = 60.0) -> pd.DataFrame:
+    """Detector 4 -- flag the first reading after a gap longer than ``max_gap_s``.
+
+    The device logs every 15 s, so a gap of a minute or more means readings were lost
+    (device reset, Wi-Fi outage, database write failure). Returns ``gap_s`` (seconds since
+    the previous reading, NaN for the first) and ``flag``. The first reading is never
+    flagged. The threshold is four nominal intervals. On the clean day it fires exactly
+    once, on a real 74 s gap (four readings lost; time in ``results.json``), which is a true
+    report, not a false alarm: the fault scoring counts it against the watchdog anyway.
+    """
+    gap = df.index.to_series().diff().dt.total_seconds()
+    out = pd.DataFrame({"gap_s": gap.to_numpy()}, index=df.index)
+    out["flag"] = out["gap_s"] > max_gap_s
     return out

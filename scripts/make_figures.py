@@ -46,6 +46,9 @@ CLEAN_WINDOWS = [
     ("2026-10-03 10:01:51", "2026-10-03 11:56:41"),
     ("2026-10-03 13:09:31", "2026-10-03 13:40:00"),
 ]
+#: The 92-minute heater-off stretch (from ``heater_segments``), used to measure ``b`` with
+#: no model at all (``thermal_fit.cooldown_loss_rate``).
+COOLDOWN_WINDOW = ("2026-10-03 10:16:36", "2026-10-03 11:48:56")
 
 plt.rcParams.update(
     {
@@ -342,6 +345,78 @@ def fig_second_order(df: pd.DataFrame, seg: pd.DataFrame) -> dict[str, object]:
         "second_order_other_branch_rmse_c": round(other_branch.rmse_c, 4),
         "comparison": _round(tf.compare_models(first, second)),
         "post_switch_peaks": peaks,
+        "two_mass_trial": fig_two_mass(df, second, other_branch.rmse_c),
+    }
+
+
+def fig_two_mass(
+    df: pd.DataFrame, second: tf.SecondOrderFit, other_rmse: float
+) -> dict[str, object]:
+    """Figure 10 and the facts behind the "why only three parameters" answer.
+
+    Fits the general four-parameter two-mass model (heater body with its own heat capacity
+    share ``phi``) three ways: free, with ``b`` pinned to the value the 92-minute cool-down
+    measures on its own, and as a profile over ``phi`` with the other three refitted. The
+    README states only what these numbers show.
+    """
+    free = tf.fit_two_mass(df)
+    cooldown = tf.cooldown_loss_rate(df, *COOLDOWN_WINDOW)
+    pinned = tf.fit_two_mass(df, fix_b=cooldown["b_per_min"])
+    phis = (-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+    profile = tf.two_mass_profile(df, phis=phis)
+    at_zero = next(r for r in profile if r["phi"] == 0.0)
+
+    fig, ax1 = plt.subplots(figsize=(7, 3.6))
+    phis = [r["phi"] for r in profile]
+    ax1.plot(phis, [r["rmse_c"] for r in profile], color=BLUE, marker="o", ms=4, label="RMSE")
+    ax1.set_xlabel("phi = heater body's share of the heat capacity (held fixed)")
+    ax1.set_ylabel("open-loop RMSE (°C)", color=BLUE)
+    ax1.axvspan(-0.3, 0.0, color="#eeeeea", lw=0, zorder=0)
+    ax1.text(-0.29, other_rmse + 0.004, "unphysical\n(phi < 0)", fontsize=8, color=GRAY)
+    ax2 = ax1.twinx()
+    ax2.plot(phis, [r["tau_min"] for r in profile], color=ORANGE, marker="s", ms=4, ls="--")
+    ax2.set_ylabel("chamber time constant 1/b (min), refitted", color=ORANGE)
+    ax2.grid(False)
+    ax2.spines["right"].set_visible(True)
+    ax1.axhline(other_rmse, color=GRAY, lw=0.8, ls=":")
+    ax1.text(
+        0.02,
+        other_rmse + 0.0004,
+        f"mirror-branch fit (b = 0.22): RMSE {other_rmse:.3f} °C",
+        fontsize=8,
+        color=GRAY,
+    )
+    ax1.set_ylim(min(other_rmse, min(r["rmse_c"] for r in profile)) - 0.002, None)
+    ax1.set_title(
+        "Four-parameter two-mass model: the extra parameter only trades against b\n"
+        f"(left free, the fit runs to b = {free.b_per_min:.2f} /min, i.e. the mirror branch)",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "10_two_mass_profile.png")
+    plt.close(fig)
+
+    return {
+        "model": "dE/dt = (a*u - E)/tau_h + (phi*b/tau_h)*(T - T_out); dT/dt = E - b*(T - T_out); "
+        "phi = C_h/(C + C_h); phi = 0 is the heater-lag model",
+        "free_fit": {
+            "note": "b ends on its upper bound (0.1 /min): the slow-heater/fast-chamber mirror "
+            "solution re-entered through phi",
+            **_round(free.as_dict()),
+        },
+        "free_vs_second_order": _round(tf.compare_two_mass(second, free)),
+        "cooldown_only_b": _round(cooldown),
+        "b_pinned_to_cooldown": _round(pinned.as_dict()),
+        "profile": [_round(r) for r in profile],
+        "rmse_change_phi_minus0_2_to_0_4_pct": round(
+            100.0
+            * (
+                next(r for r in profile if r["phi"] == -0.2)["rmse_c"]
+                - next(r for r in profile if r["phi"] == 0.4)["rmse_c"]
+            )
+            / at_zero["rmse_c"],
+            2,
+        ),
     }
 
 
@@ -394,7 +469,7 @@ def fig_faults(df: pd.DataFrame, second: tf.SecondOrderFit) -> dict[str, object]
         ax.tick_params(labelsize=8)
     axes[0, 0].legend(loc="upper left", fontsize=7)
     fig.suptitle(
-        "Injected faults (yellow) and what two detectors flag; the other two are in the table",
+        "Injected faults (yellow) and what two detectors flag; the other three are in the table",
         fontsize=10,
     )
     fig.tight_layout()
@@ -405,8 +480,8 @@ def fig_faults(df: pd.DataFrame, second: tf.SecondOrderFit) -> dict[str, object]
     for _, r in table.iterrows():
         rows.append(
             {
-                "kind": r["kind"],
-                "detector": r["detector"],
+                "kind": str(r["kind"]),
+                "detector": str(r["detector"]),
                 "detection_rate": round(float(r["detection_rate"]), 2),
                 "null_detection_rate": round(float(r["null_detection_rate"]), 2),
                 "precision": None if pd.isna(r["precision"]) else round(float(r["precision"]), 2),
@@ -415,7 +490,12 @@ def fig_faults(df: pd.DataFrame, second: tf.SecondOrderFit) -> dict[str, object]
             }
         )
     clean_flags = {name: int(det(df).sum()) for name, det in detectors.items()}
+    gaps = an.interval_watchdog(df)
     return {
+        "clean_day_gaps_over_60s": [
+            {"time_utc": ts.strftime("%H:%M:%S"), "gap_s": float(g)}
+            for ts, g in gaps.loc[gaps["flag"], "gap_s"].items()
+        ],
         "trials_per_kind": FAULT_TRIALS,
         "fault_defaults": {
             k: {"duration_min": v[0].total_seconds() / 60.0, "magnitude": v[1]}

@@ -96,3 +96,15 @@ def test_run_trials_and_summarise(history):
     assert set(summary["kind"]) == {"spike", "door_open"}
     assert summary["detection_rate"].between(0, 1).all()
     assert summary.loc[summary["detector"] == "model_drift", "detection_rate"].min() > 0.5
+
+
+def test_interval_detector_catches_dropout_and_nothing_else(history, start):
+    det = fl.default_detectors(history, MODEL)
+    assert "interval" in det and det["interval"](history).sum() == 1
+    for kind in fl.FAULT_KINDS:
+        faulted, labels = fl.inject(history, fl.make_fault(kind, start), MODEL)
+        s = fl.score(det["interval"](faulted), labels)
+        if kind == "dropout":
+            assert s["detected"] and s["tp"] == 1 and s["fn"] == 0
+        else:
+            assert s["flags_total"] == 1  # only the clean day's own 74 s gap

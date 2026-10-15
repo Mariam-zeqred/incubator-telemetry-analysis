@@ -41,10 +41,14 @@ following it instantly:
 Because ``E`` keeps flowing after the relay opens, the sensed temperature keeps rising after
 switch-off and starts late after switch-on: that is what the first-order fit had to fake with
 a dead time. It is the limit of a two-mass model (heater body + chamber) in which the
-body's temperature is not observed; the general four-parameter two-mass model was tried on
-this data and its extra parameter is not determined (it comes out indistinguishable from
-zero), so the three-parameter form is the one that is actually supported. That trial is not
-kept in the repo (TODO.md).
+body's heat capacity is negligible next to the chamber's. The general four-parameter
+two-mass model is :func:`fit_two_mass`, and on this data its extra parameter ``phi`` (the
+body's share of the heat capacity) is *not determined*: holding ``phi`` anywhere between
+-0.2 and 0.4 and refitting the rest changes the RMSE by under 2 % while ``b`` moves to
+compensate, and left free the fit runs into the mirror branch described below. The
+three-parameter form is kept because the fourth parameter cannot be identified from one
+temperature sensor and 1 °C of ambient variation, not because it was measured to be zero
+(numbers in ``figures/results.json`` under ``two_mass_trial``, figure 10).
 
 Identifiability and the two branches: from one temperature the relay-to-temperature response
 fixes the gain ``a / tau_h``, the sum ``1/tau_h + b`` and the product ``b / tau_h``, which
@@ -447,4 +451,243 @@ def compare_models(first: FirstOrderFit, second: SecondOrderFit) -> dict[str, fl
         "first_order_aic": aic1,
         "second_order_aic": aic2,
         "delta_aic": aic2 - aic1,
+    }
+
+
+# ----------------------------------------------------------------------------------------
+# Four parameters: the general two-mass model (heater body + chamber), to test whether the
+# three-parameter heater-lag form leaves anything on the table
+# ----------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TwoMassFit:
+    """Fit of the general two-mass model; ``phi`` is the heater body's share of the total
+    heat capacity, ``C_h / (C + C_h)``. ``phi = 0`` is exactly the heater-lag model."""
+
+    a_c_per_min: float
+    a_se: float
+    tau_h_min: float
+    tau_h_se: float
+    b_per_min: float
+    b_se: float
+    phi: float
+    phi_se: float
+    b_fixed: bool
+    n: int
+    rmse_c: float
+    r2: float
+
+    @property
+    def tau_min(self) -> float:
+        return 1.0 / self.b_per_min
+
+    @property
+    def phi_is_distinguishable_from_zero(self) -> bool:
+        """True when ``phi`` is more than two standard errors away from zero."""
+        return abs(self.phi) > 2.0 * self.phi_se
+
+    def as_dict(self) -> dict[str, float | int | bool]:
+        d = asdict(self)
+        d["tau_min"] = self.tau_min
+        d["phi_is_distinguishable_from_zero"] = self.phi_is_distinguishable_from_zero
+        return d
+
+
+def _simulate_two_mass(
+    a: float,
+    tau_h: float,
+    b: float,
+    phi: float,
+    u: np.ndarray,
+    t_out: np.ndarray,
+    temp0: float,
+    e0: float,
+    dt_min: np.ndarray,
+) -> np.ndarray:
+    """Same integrator as :func:`_simulate_second_order` with the chamber feeding back on
+    the delivered heat: ``dE/dt = (a*u + phi*b*(T - T_out) - E) / tau_h``. With
+    ``phi = 0`` the two functions compute identical numbers."""
+    n = len(u)
+    temp = np.empty(n)
+    t, e = float(temp0), float(e0)
+    temp[0] = t
+    ul, tl, dl = u.tolist(), t_out.tolist(), dt_min.tolist()
+    k_fb = phi * b
+    for k in range(1, n):
+        step = dl[k - 1]
+        target = a * ul[k - 1] + k_fb * (t - tl[k - 1])
+        e_next = target + (e - target) * math.exp(-step / tau_h)
+        t = t + step * (0.5 * (e + e_next) - b * (t - tl[k - 1]))
+        e = e_next
+        temp[k] = t
+    return temp
+
+
+def fit_two_mass(
+    df: pd.DataFrame, windows: Windows | None = None, fix_b: float | None = None
+) -> TwoMassFit:
+    """Output-error fit of the general two-mass (heater body + chamber) model.
+
+    Two lumped masses, the heater body at an unobserved temperature ``T_h`` and the chamber
+    at ``T``::
+
+        C_h dT_h/dt = P u - (T_h - T) / R_h
+        C   dT/dt   = (T_h - T) / R_h - (T - T_out) / R
+
+    With ``E = (T_h - T) / (R_h C)`` (the chamber warming rate delivered by the body) this is
+
+        dE/dt = (a u - E) / tau_h + (phi b / tau_h) (T - T_out)
+        dT/dt = E - b (T - T_out)
+
+    where ``phi = C_h / (C + C_h)`` is the body's share of the heat capacity, ``b = 1/(RC)``
+    and ``tau_h = R_h C C_h / (C + C_h)``. The heater-lag model of :func:`fit_second_order`
+    is the special case ``phi = 0``: a body whose heat capacity is negligible next to the
+    chamber's. The only new thing the fourth parameter can do is let the chamber temperature
+    feed back on the delivered heat, so a fit with ``phi`` indistinguishable from zero means
+    this data does not support (or need) the extra parameter.
+
+    ``phi`` is searched over ``[-1, 1]`` rather than the physical ``[0, 1)`` on purpose: a
+    bound at zero would hide whether the data pushes it below zero, and the question here is
+    whether it is *determined*, not whether it is physical. Same window handling, start
+    values and physical-branch bounds as :func:`fit_second_order`; no dead time. ``fix_b``
+    holds the chamber loss at a given value (e.g. the one the long cool-down measures) and
+    fits only ``a``, ``tau_h`` and ``phi``; its standard errors are then conditional on ``b``.
+    """
+    minutes = (df.index - df.index[0]).total_seconds().to_numpy() / 60.0
+    temp = df["temp"].to_numpy(dtype=float)
+    t_out = df["temp_out"].to_numpy(dtype=float)
+    u = df["heater"].to_numpy(dtype=float)
+    slices = _window_slices(df, windows)
+    lower, upper = [0.0, 0.1, 1e-4, -1.0], [5.0, 30.0, 0.1, 1.0]
+    starts: tuple[tuple[float, ...], ...] = ((0.5, 4.0, 0.01, 0.0), (0.3, 10.0, 0.02, 0.3))
+    if fix_b is not None:
+        lower, upper = [lower[0], lower[1], lower[3]], [upper[0], upper[1], upper[3]]
+        starts = ((0.5, 4.0, 0.0), (0.3, 10.0, 0.3))
+
+    def residuals(params: np.ndarray) -> np.ndarray:
+        if fix_b is None:
+            a, tau_h, b, phi = params
+        else:
+            (a, tau_h, phi), b = params, fix_b
+        parts = []
+        for sl in slices:
+            dt = np.diff(minutes[sl])
+            sim = _simulate_two_mass(a, tau_h, b, phi, u[sl], t_out[sl], temp[sl][0], 0.0, dt)
+            parts.append(sim - temp[sl])
+        return np.concatenate(parts)
+
+    sols = [least_squares(residuals, x0=np.array(x0), bounds=(lower, upper)) for x0 in starts]
+    sol = min(sols, key=lambda s: float(s.fun @ s.fun))
+    resid = sol.fun
+    n = len(resid)
+    sse = float(resid @ resid)
+    sigma2 = sse / max(n - len(sol.x), 1)
+    cov = sigma2 * np.linalg.pinv(sol.jac.T @ sol.jac)
+    se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+    idx = np.r_[tuple(np.r_[sl] for sl in slices)]
+    ss_tot = float(((temp[idx] - temp[idx].mean()) ** 2).sum())
+    if fix_b is None:
+        x = [float(v) for v in sol.x]
+        e = [float(v) for v in se]
+    else:
+        x = [float(sol.x[0]), float(sol.x[1]), float(fix_b), float(sol.x[2])]
+        e = [float(se[0]), float(se[1]), 0.0, float(se[2])]
+    return TwoMassFit(
+        a_c_per_min=x[0],
+        a_se=e[0],
+        tau_h_min=x[1],
+        tau_h_se=e[1],
+        b_per_min=x[2],
+        b_se=e[2],
+        phi=x[3],
+        phi_se=e[3],
+        b_fixed=fix_b is not None,
+        n=int(n),
+        rmse_c=float(np.sqrt(sse / n)),
+        r2=1.0 - sse / ss_tot if ss_tot > 0 else float("nan"),
+    )
+
+
+def compare_two_mass(second: SecondOrderFit, two_mass: TwoMassFit) -> dict[str, float | int]:
+    """RMSE and AIC of the three-parameter heater-lag fit against the four-parameter one,
+    on the same readings. A negative ``delta_aic`` would favour the fourth parameter."""
+    if second.n != two_mass.n:
+        raise ValueError("fits must be on the same readings to compare AIC")
+    k2 = 3 + (1 if second.dead_time_readings else 0)
+    aic2 = aic(second.n, second.rmse_c, k2)
+    aic4 = aic(two_mass.n, two_mass.rmse_c, 4)
+    return {
+        "n": second.n,
+        "second_order_rmse_c": second.rmse_c,
+        "two_mass_rmse_c": two_mass.rmse_c,
+        "rmse_ratio": two_mass.rmse_c / second.rmse_c,
+        "second_order_aic": aic2,
+        "two_mass_aic": aic4,
+        "delta_aic": aic4 - aic2,
+    }
+
+
+def two_mass_profile(
+    df: pd.DataFrame, phis: tuple[float, ...] = (-0.2, 0.0, 0.2, 0.4, 0.6, 0.8)
+) -> list[dict[str, float]]:
+    """RMSE of the two-mass model with ``phi`` held at each value and ``a``, ``tau_h``, ``b``
+    refitted (physical-branch bounds). Shows whether the fourth parameter is determined by
+    the data or only trades against ``b`` along a flat ridge."""
+    minutes = (df.index - df.index[0]).total_seconds().to_numpy() / 60.0
+    temp = df["temp"].to_numpy(dtype=float)
+    t_out = df["temp_out"].to_numpy(dtype=float)
+    u = df["heater"].to_numpy(dtype=float)
+    dt = np.diff(minutes)
+    rows = []
+    for phi in phis:
+
+        def residuals(params: np.ndarray, phi: float = phi) -> np.ndarray:
+            a, tau_h, b = params
+            return _simulate_two_mass(a, tau_h, b, phi, u, t_out, temp[0], 0.0, dt) - temp
+
+        sols = [
+            least_squares(residuals, x0=np.array(x0), bounds=([0.0, 0.1, 1e-4], [5.0, 30.0, 0.1]))
+            for x0 in ((0.5, 4.0, 0.01), (0.3, 10.0, 0.02))
+        ]
+        sol = min(sols, key=lambda s: float(s.fun @ s.fun))
+        rows.append(
+            {
+                "phi": float(phi),
+                "a_c_per_min": float(sol.x[0]),
+                "tau_h_min": float(sol.x[1]),
+                "b_per_min": float(sol.x[2]),
+                "tau_min": 1.0 / float(sol.x[2]),
+                "rmse_c": float(np.sqrt(sol.fun @ sol.fun / len(sol.fun))),
+            }
+        )
+    return rows
+
+
+def cooldown_loss_rate(
+    df: pd.DataFrame, start: str | pd.Timestamp, end: str | pd.Timestamp, skip_min: float = 10.0
+) -> dict[str, float]:
+    """``b`` measured directly on a heater-off stretch, with no thermal model involved.
+
+    Fits a straight line to the chamber temperature between ``start`` and ``end`` (UTC),
+    skipping the first ``skip_min`` minutes so that the heat still leaving the heater body
+    (about two ``tau_h``) does not bias the slope, and divides the slope by the mean excess
+    over ambient: ``b = -slope / mean(T - T_out)``. Exact only if the excess is roughly
+    constant over the stretch; here it falls from 4.4 to 3.6 °C over 80 min, so the result is
+    a plain average of a slowly changing quantity. Used to pin ``b`` independently of the
+    least-squares fits.
+    """
+    w = df.loc[pd.Timestamp(start, tz="UTC") : pd.Timestamp(end, tz="UTC")]
+    w = w[w.index >= w.index[0] + pd.Timedelta(minutes=skip_min)]
+    if len(w) < 10 or bool(w["heater"].any()):
+        raise ValueError("need at least 10 heater-off readings after the skipped minutes")
+    x = (w.index - w.index[0]).total_seconds().to_numpy() / 60.0
+    slope = float(np.polyfit(x, w["temp"].to_numpy(dtype=float), 1)[0])
+    excess = float((w["temp"] - w["temp_out"]).mean())
+    return {
+        "slope_c_per_min": slope,
+        "mean_excess_c": excess,
+        "b_per_min": -slope / excess,
+        "tau_min": -excess / slope,
+        "n": int(len(w)),
     }

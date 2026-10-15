@@ -83,3 +83,47 @@ def test_compare_models_requires_same_readings():
     second = t.fit_second_order(df.iloc[:300])
     with pytest.raises(ValueError):
         t.compare_models(first, second)
+
+
+def test_two_mass_with_phi_zero_is_the_heater_lag_model():
+    df = synthetic_trace_second_order(a=0.5, tau_h=5.0, b=0.01, n=300)
+    heater, t_out = df["heater"].to_numpy(dtype=float), df["temp_out"].to_numpy()
+    dt = np.full(len(df) - 1, 0.25)
+    sim3 = t.simulate_second_order((0.5, 5.0, 0.01), heater, t_out, 26.0, 0.25)
+    sim4 = t._simulate_two_mass(0.5, 5.0, 0.01, 0.0, heater, t_out, 26.0, 0.0, dt)
+    assert np.array_equal(sim3, sim4)
+
+
+def test_two_mass_recovers_phi_zero_on_a_three_parameter_trace():
+    df = synthetic_trace_second_order(a=0.5, tau_h=5.0, b=0.01, noise_c=0.01)
+    fit = t.fit_two_mass(df)
+    assert not fit.b_fixed
+    assert abs(fit.phi) < 2 * fit.phi_se and fit.phi_se < 0.05
+    assert not fit.phi_is_distinguishable_from_zero
+    assert abs(fit.a_c_per_min - 0.5) < 0.02 and abs(fit.b_per_min - 0.01) < 0.001
+    pinned = t.fit_two_mass(df, fix_b=0.01)
+    assert pinned.b_fixed and pinned.b_per_min == 0.01 and pinned.b_se == 0.0
+    assert abs(pinned.phi) < 0.05
+
+
+def test_two_mass_is_not_determined_on_the_real_day(history):
+    second = t.fit_second_order(history)
+    free = t.fit_two_mass(history)
+    # the free fit leaves the physical branch: b at its bound, large phi, small RMSE gain
+    assert free.b_per_min > 0.09 and free.phi > 0.5
+    cmp = t.compare_two_mass(second, free)
+    assert 0.8 < cmp["rmse_ratio"] < 1.0
+    profile = t.two_mass_profile(history, phis=(-0.2, 0.0, 0.4))
+    rmses = [r["rmse_c"] for r in profile]
+    assert max(rmses) - min(rmses) < 0.03 * min(rmses)  # a ridge, not a minimum
+    assert profile[0]["tau_min"] > 1.5 * profile[-1]["tau_min"]  # phi trades against b
+    with pytest.raises(ValueError):
+        t.compare_two_mass(second, t.fit_two_mass(history.iloc[:400]))
+
+
+def test_cooldown_loss_rate_is_model_free_and_sane(history):
+    cd = t.cooldown_loss_rate(history, "2026-10-03 10:16:36", "2026-10-03 11:48:56")
+    assert cd["n"] > 300 and cd["slope_c_per_min"] < 0
+    assert 0.007 < cd["b_per_min"] < 0.013
+    with pytest.raises(ValueError):
+        t.cooldown_loss_rate(history, "2026-10-03 10:02:00", "2026-10-03 10:05:00")

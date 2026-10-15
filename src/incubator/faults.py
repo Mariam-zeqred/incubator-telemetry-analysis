@@ -223,15 +223,21 @@ def model_residual_detector(
     return detect
 
 
+def interval_detector(df: pd.DataFrame) -> pd.Series:
+    """The sampling-interval watchdog (gap > 60 s) as a callable; catches ``dropout`` only."""
+    return an.interval_watchdog(df)["flag"].reindex(df.index, fill_value=False)
+
+
 def default_detectors(
     reference: pd.DataFrame, model: SecondOrderFit | tuple[float, float, float]
 ) -> dict[str, Detector]:
-    """The four detectors compared in the README, keyed by their short names."""
+    """The five detectors compared in the README, keyed by their short names."""
     return {
         "zscore": zscore_detector,
         "isoforest": isoforest_detector,
         "isoforest_ref": reference_isoforest_detector(reference),
         "model_drift": model_residual_detector(reference, model),
+        "interval": interval_detector,
     }
 
 
